@@ -1,81 +1,303 @@
 package tui
 
 import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/Polqt/gitflowtui/config"
 	"github.com/Polqt/gitflowtui/git"
+	"github.com/Polqt/gitflowtui/gitflow"
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// panel represents a UI panel in the terminal interface.
 type panel int
 
 const (
 	panelBranches panel = iota
 	panelLog
 	panelStatus
-	panelCommit
 	panelStash
-	panelPR
-	panelPrompt // modal for user input (e.g., creating a branch, entering a commit message)
+	panelDiff
 )
 
-// pendingAction represents an action that is awaiting user input or confirmation.
-type pendingAction string
+type promptMode int
 
 const (
-	actionNone       pendingAction = ""
-	actionNewFeature pendingAction = "feature"
-	actionNewRelease pendingAction = "release"
-	actionNewHotfix  pendingAction = "hotfix"
-	actionStash      pendingAction = "stash"
+	promptNone promptMode = iota
+	promptCommit
+	promptStash
+	promptFeatureName
+	promptReleaseVersion
+	promptHotfixVersion
 )
 
-// App is the main application struct that holds the state of the TUI.
-// Fields are arrange by concern: dependencies, layout, size, sub-models
-type App struct {
-	// Dependencies
+type finishAction int
 
-	// Terminal Layout
+const (
+	finishNone finishAction = iota
+	finishFeature
+	finishRelease
+	finishHotfix
+)
+
+// App is the Bubble Tea root model.
+type App struct {
+	repo     *git.Repo
+	workflow *gitflow.Workflow
+	cfg      config.Config
+
 	width  int
 	height int
 
-	// focus + navigation
-	activePanel   panel
-	previousPanel panel // restore focus after closing a modal
+	activePanel panel
 
-	// Repository data
+	branches list.Model
+	log      list.Model
+	status   list.Model
+	stash    list.Model
+	diff     viewport.Model
 
-	// sub-models
+	prompt promptOverlay
+	prForm prTemplateForm
 
-	// Transient state for user interactions
+	spinner spinner.Model
+	styles  uiStyles
+
 	loading      bool
 	loadingLabel string
 	notification string
 	notifError   bool
 	showHelp     bool
-	pending      pendingAction
 
-	spinner spinner.Model
+	currentBranch string
+	ahead         int
+	behind        int
+	rawDiff       string
+
+	newBranchArmed bool
+	pendingFinish  finishAction
 }
 
-// promptOverlay is the modal for single-line input
 type promptOverlay struct {
-	input  textinput.Model
-	title  string
 	active bool
+	mode   promptMode
+	title  string
+	hint   string
+	input  textinput.Model
 }
 
-func NewApp(repo git.Repository) *App {
+type repoSnapshot struct {
+	Branches      []git.Branch
+	Commits       []git.Commit
+	Files         []git.FileStatus
+	Stashes       []git.StashEntry
+	CurrentBranch string
+	Ahead         int
+	Behind        int
+}
+
+type refreshMsg struct {
+	snapshot repoSnapshot
+	err      error
+}
+
+type opMsg struct {
+	label   string
+	err     error
+	refresh bool
+}
+
+type diffMsg struct {
+	text string
+	err  error
+}
+
+func NewApp(repo *git.Repo, cfg config.Config) *App {
+	workflowCfg := gitflow.DefaultConfig()
+	workflowCfg.MainBranch = cfg.MainBranch
+	workflowCfg.DevelopBranch = cfg.DevelopBranch
+	workflowCfg.RemoteName = cfg.RemoteName
+
+	branchList := newPanelList()
+	logList := newPanelList()
+	statusList := newPanelList()
+	stashList := newPanelList()
+
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7C3AED"))
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	ti := textinput.New()
-	ti.Placeholder = "Please enter a value..."
-	ti.CharLimit = 120
-	ti.Width = 50
+	p := textinput.New()
+	p.Prompt = "> "
+	p.CharLimit = 160
 
 	return &App{
+		repo:         repo,
+		workflow:     gitflow.New(repo, workflowCfg),
+		cfg:          cfg,
+		activePanel:  panelBranches,
+		branches:     branchList,
+		log:          logList,
+		status:       statusList,
+		stash:        stashList,
+		diff:         viewport.New(0, 0),
+		prompt:       promptOverlay{input: p},
+		prForm:       newPRTemplateForm(),
+		spinner:      sp,
+		styles:       defaultStyles(),
+		loadingLabel: "Refreshing",
 	}
-} 
+}
+
+func newPanelList() list.Model {
+	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = false
+	delegate.SetSpacing(0)
+	delegate.Styles.NormalTitle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("250")).
+		PaddingLeft(1)
+	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("81")).
+		Bold(true).
+		PaddingLeft(0)
+
+	m := list.New([]list.Item{}, delegate, 0, 0)
+	m.SetShowTitle(false)
+	m.SetShowFilter(false)
+	m.SetShowStatusBar(false)
+	m.SetShowPagination(false)
+	m.SetShowHelp(false)
+	m.SetFilteringEnabled(false)
+	return m
+}
+
+func (a *App) Init() tea.Cmd {
+	a.loading = true
+	return tea.Batch(a.spinner.Tick, a.refreshCmd())
+}
+
+func (a *App) refreshCmd() tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		branches, err := a.repo.Branches(ctx)
+		if err != nil {
+			return refreshMsg{err: err}
+		}
+
+		current, err := a.repo.CurrentBranch(ctx)
+		if err != nil {
+			return refreshMsg{err: err}
+		}
+
+		commits, err := a.repo.LogRef(ctx, current, a.cfg.LogLimit)
+		if err != nil {
+			return refreshMsg{err: err}
+		}
+
+		files, err := a.repo.Status(ctx)
+		if err != nil {
+			return refreshMsg{err: err}
+		}
+
+		stashes, err := a.repo.ListStashes(ctx)
+		if err != nil {
+			return refreshMsg{err: err}
+		}
+
+		ahead, behind := 0, 0
+		for _, b := range branches {
+			if b.Name == current {
+				ahead, behind = b.Ahead, b.Behind
+				break
+			}
+		}
+
+		return refreshMsg{snapshot: repoSnapshot{
+			Branches:      branches,
+			Commits:       commits,
+			Files:         files,
+			Stashes:       stashes,
+			CurrentBranch: current,
+			Ahead:         ahead,
+			Behind:        behind,
+		}}
+	}
+}
+
+func (a *App) gitOpCmd(label string, refresh bool, fn func(context.Context) error) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		err := fn(ctx)
+		return opMsg{label: label, err: err, refresh: refresh}
+	}
+}
+
+func (a *App) loadWorkingDiffCmd() tea.Cmd {
+	item, ok := a.selectedFileItem()
+	if !ok {
+		return func() tea.Msg {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			out, err := a.repo.Diff(ctx, "")
+			return diffMsg{text: out, err: err}
+		}
+	}
+
+	path := item.file.Path
+	staged := item.file.IsStaged() && !item.file.IsUnstaged()
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		out, err := a.repo.DiffFile(ctx, path, staged)
+		if err != nil {
+			return diffMsg{err: err}
+		}
+		return diffMsg{text: out}
+	}
+}
+
+func (a *App) loadStashDiffCmd() tea.Cmd {
+	item, ok := a.selectedStashItem()
+	if !ok {
+		return nil
+	}
+	ref := item.entry.Ref
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		out, err := a.repo.StashDiff(ctx, ref)
+		return diffMsg{text: out, err: err}
+	}
+}
+
+func (a *App) openPrompt(mode promptMode, title, hint, placeholder string) {
+	a.prompt.active = true
+	a.prompt.mode = mode
+	a.prompt.title = title
+	a.prompt.hint = hint
+	a.prompt.input.SetValue("")
+	a.prompt.input.Placeholder = placeholder
+	a.prompt.input.Focus()
+}
+
+func (a *App) setNotification(msg string, isError bool) {
+	a.notification = strings.TrimSpace(msg)
+	a.notifError = isError
+}
+
+func (a *App) opMessage(msg opMsg) string {
+	if msg.err != nil {
+		return fmt.Sprintf("%s failed: %v", msg.label, msg.err)
+	}
+	return msg.label + " done"
+}
