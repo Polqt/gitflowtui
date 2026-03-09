@@ -4,24 +4,25 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/Polqt/gitflowtui/config"
+	"github.com/Polqt/gitflowtui/git"
+	"github.com/Polqt/gitflowtui/tui"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "gitflow-tui — Gitflow-aware terminal UI for git")
-		fmt.Fprintln(os.Stderr, "\nUsage: gitflow-tui [path]")
+		fmt.Fprintln(os.Stderr, "TUI GitFlow Manager")
+		fmt.Fprintln(os.Stderr, "Usage: gitflow-tui [path]")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
 
-	// Default to current directory if no path is provided
 	dir := "."
 	if flag.NArg() > 0 {
 		dir = flag.Arg(0)
 	}
-
-	cfg := config.Load()
-	_ = cfg // Placeholder to avoid unused variable error; replace with actual config usage
 
 	repo, err := git.NewRepo(dir)
 	if err != nil {
@@ -29,4 +30,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	cfg := config.Load()
+	app := tui.NewApp(repo, cfg)
+
+	program := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	if _, err := program.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "fatal:", err)
+		os.Exit(1)
+	}
 }
