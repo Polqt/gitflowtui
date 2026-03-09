@@ -7,37 +7,28 @@ import (
 	"strings"
 )
 
-// BranchType represents the type of a Git branch.
+// BranchType is a UI-friendly branch classification.
 type BranchType int
 
 const (
 	BranchTypeUnknown BranchType = iota
-	BranchTypeMain               // main / master
-	BranchTypeDevelop            // develop
-	BranchTypeFeature            // feature/*
-	BranchTypeRelease            // release/*
-	BranchTypeHotfix             // hotfix/*
+	BranchTypeMain
+	BranchTypeDevelop
+	BranchTypeFeature
+	BranchTypeRelease
+	BranchTypeHotfix
 )
 
-// Branch holds metadata for a single local branch.
+// Branch contains local branch metadata.
 type Branch struct {
 	Name     string
-	IsHead   bool       // true if this is the currently checked-out branch
-	Ahead    int        // commits ahead of upstream
-	Behind   int        // commits behind upstream
-	Upstream string     // upstream tracking ref, e.g. "origin/main"
-	Type     BranchType // classified by the gitflow package; default Unknown
+	IsHead   bool
+	Upstream string
+	Ahead    int
+	Behind   int
+	Type     BranchType
 }
 
-// Branches returns all local branches with upstream tracking info.
-//
-// `git branch -vv` format per line:
-//
-//	"* main  a1b2c3d [origin/main: ahead 2, behind 1] commit msg"
-//	"  feat  d4e5f6a [origin/feat] commit msg"
-//	"  local 7890abc commit msg"        ← no upstream
-//
-// The leading "* " marks the current branch.
 func (r *Repo) Branches(ctx context.Context) ([]Branch, error) {
 	lines, err := r.runGitLines(ctx, "branch", "-vv", "--no-color")
 	if err != nil {
@@ -46,80 +37,65 @@ func (r *Repo) Branches(ctx context.Context) ([]Branch, error) {
 
 	branches := make([]Branch, 0, len(lines))
 	for _, line := range lines {
+		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		branch, err := parseBranchLine(line)
+		b, err := parseBranchLine(line)
 		if err != nil {
-			// skip unparseable lines, but log them for debugging
 			continue
 		}
-		branches = append(branches, branch)
+		branches = append(branches, b)
 	}
-
 	return branches, nil
 }
 
-// parseBranchLine parses a single line of `git branch -vv` output into a Branch struct.
 func parseBranchLine(line string) (Branch, error) {
-	b := Branch{}
-
-	// The first 2 chars indicate if this is the current branch
+	var b Branch
 	if len(line) < 3 {
-		return b, fmt.Errorf("line too short: %q", line)
+		return b, fmt.Errorf("malformed branch line: %q", line)
 	}
+
 	b.IsHead = line[0] == '*'
+	line = strings.TrimSpace(line[1:])
 
-	// strip the leading "* " or "  "
-	line = line[2:]
-
-	// split on whitespace: [name, hash, ...rest]
 	parts := strings.Fields(line)
 	if len(parts) < 2 {
-		return b, fmt.Errorf("unexpected format: %q", line)
+		return b, fmt.Errorf("unexpected branch format: %q", line)
 	}
 	b.Name = parts[0]
 
-	// Check for upstream info in the rest of the line
-	// it always starts with a "[" and ends with a "]"
-	bracketStart := strings.Index(line, "[")
-	bracketEnd := strings.Index(line, "]")
-	if bracketStart != -1 && bracketEnd > bracketStart {
-		tracking := line[bracketStart+1 : bracketEnd]
+	l := strings.Index(line, "[")
+	r := strings.Index(line, "]")
+	if l != -1 && r > l {
+		tracking := line[l+1 : r]
 		b.Upstream, b.Ahead, b.Behind = parseTracking(tracking)
 	}
 
+	b.Type = branchTypeFromName(b.Name)
 	return b, nil
 }
 
-// parseTracking parses the content inside [...] from `git branch -vv`.
-// Examples:
-//
-//	"origin/main"                     → upstream, 0, 0
-//	"origin/main: ahead 3"            → upstream, 3, 0
-//	"origin/main: behind 2"           → upstream, 0, 2
-//	"origin/main: ahead 1, behind 4"  → upstream, 1, 4
-func parseTracking(s string) (upstream string, ahead int, behind int) {
-	// split on ": " to separate upstream from the rest
-	colonIdx := strings.Index(s, ": ")
-	if colonIdx == -1 {
-		// no colon means no ahead/behind info, just the upstream name
+func parseTracking(s string) (string, int, int) {
+	colon := strings.Index(s, ":")
+	if colon == -1 {
 		return strings.TrimSpace(s), 0, 0
 	}
-	upstream = strings.TrimSpace(s[:colonIdx])
-	metrics := s[colonIdx+2:]
 
-	// each metric is ahead N or behind N, separated by ", "
-	for _, part := range strings.Split(metrics, ", ") {
-		fields := strings.Fields(part)
-		if len(fields) != 2 {
+	upstream := strings.TrimSpace(s[:colon])
+	metrics := strings.TrimSpace(s[colon+1:])
+
+	ahead := 0
+	behind := 0
+	for _, part := range strings.Split(metrics, ",") {
+		fields := strings.Fields(strings.TrimSpace(part))
+		if len(fields) < 2 {
 			continue
 		}
 		n, err := strconv.Atoi(fields[1])
 		if err != nil {
 			continue
 		}
-
 		switch fields[0] {
 		case "ahead":
 			ahead = n
@@ -127,10 +103,27 @@ func parseTracking(s string) (upstream string, ahead int, behind int) {
 			behind = n
 		}
 	}
+
 	return upstream, ahead, behind
 }
 
-// Checkout switches to an existing branch.
+func branchTypeFromName(name string) BranchType {
+	switch {
+	case name == "main" || name == "master":
+		return BranchTypeMain
+	case name == "develop":
+		return BranchTypeDevelop
+	case strings.HasPrefix(name, "feature/") || strings.HasPrefix(name, "feat/"):
+		return BranchTypeFeature
+	case strings.HasPrefix(name, "release/"):
+		return BranchTypeRelease
+	case strings.HasPrefix(name, "hotfix/"):
+		return BranchTypeHotfix
+	default:
+		return BranchTypeUnknown
+	}
+}
+
 func (r *Repo) Checkout(ctx context.Context, branch string) error {
 	if _, err := r.runGit(ctx, "checkout", branch); err != nil {
 		return fmt.Errorf("checkout %q: %w", branch, err)
@@ -138,7 +131,17 @@ func (r *Repo) Checkout(ctx context.Context, branch string) error {
 	return nil
 }
 
-// DeleteBranch deletes a local branch. force=true maps to -D (ignore unmerged).
+func (r *Repo) CreateBranch(ctx context.Context, name, base string) error {
+	args := []string{"checkout", "-b", name}
+	if strings.TrimSpace(base) != "" {
+		args = append(args, base)
+	}
+	if _, err := r.runGit(ctx, args...); err != nil {
+		return fmt.Errorf("create branch %q: %w", name, err)
+	}
+	return nil
+}
+
 func (r *Repo) DeleteBranch(ctx context.Context, name string, force bool) error {
 	flag := "-d"
 	if force {
@@ -150,12 +153,9 @@ func (r *Repo) DeleteBranch(ctx context.Context, name string, force bool) error 
 	return nil
 }
 
-// MergeBranch merges name into the current branch.
-// noFF=true forces a merge commit even for fast-forward cases — required by Gitflow.
 func (r *Repo) MergeBranch(ctx context.Context, name string, noFF bool) error {
 	args := []string{"merge"}
 	if noFF {
-		// --no-ff preserves branch topology in the log — critical for Gitflow.
 		args = append(args, "--no-ff")
 	}
 	args = append(args, name)
@@ -163,4 +163,47 @@ func (r *Repo) MergeBranch(ctx context.Context, name string, noFF bool) error {
 		return fmt.Errorf("merge %q: %w", name, err)
 	}
 	return nil
+}
+
+func (r *Repo) Push(ctx context.Context) error {
+	if _, err := r.runGit(ctx, "push"); err != nil {
+		return fmt.Errorf("push: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) PullRebase(ctx context.Context) error {
+	if _, err := r.runGit(ctx, "pull", "--rebase", "--autostash"); err != nil {
+		return fmt.Errorf("pull --rebase: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) Fetch(ctx context.Context) error {
+	if _, err := r.runGit(ctx, "fetch", "--all", "--prune"); err != nil {
+		return fmt.Errorf("fetch: %w", err)
+	}
+	return nil
+}
+
+// AheadBehind returns commits unique to left and right in left...right.
+func (r *Repo) AheadBehind(ctx context.Context, left, right string) (int, int, error) {
+	out, err := r.runGit(ctx, "rev-list", "--left-right", "--count", left+"..."+right)
+	if err != nil {
+		return 0, 0, fmt.Errorf("ahead/behind %s...%s: %w", left, right, err)
+	}
+	fields := strings.Fields(out)
+	if len(fields) < 2 {
+		return 0, 0, fmt.Errorf("unexpected ahead/behind output: %q", out)
+	}
+
+	ahead, err := strconv.Atoi(fields[0])
+	if err != nil {
+		return 0, 0, fmt.Errorf("parse ahead count: %w", err)
+	}
+	behind, err := strconv.Atoi(fields[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("parse behind count: %w", err)
+	}
+	return ahead, behind, nil
 }

@@ -21,18 +21,16 @@ const (
 )
 
 type FileStatus struct {
-	X    FileState // staged change
-	Y    FileState // unstaged change
-	Path string    // current path of the file
-	Orig string    // Original path for renamed/copied files
+	X    FileState
+	Y    FileState
+	Path string
+	Orig string
 }
 
-// IsStaged returns true if the file has a staged change (added, modified, deleted, renamed, or copied).
 func (f FileStatus) IsStaged() bool {
 	return f.X != StateUnmodified && f.X != StateUntracked
 }
 
-// IsUnstaged returns true if the file has an unstaged change (added, modified, deleted, renamed, or copied).
 func (f FileStatus) IsUnstaged() bool {
 	return f.Y != StateUnmodified && f.Y != StateUntracked
 }
@@ -41,19 +39,22 @@ func (f FileStatus) IsUntracked() bool {
 	return f.X == StateUntracked && f.Y == StateUntracked
 }
 
-// We use --porcelain=v2 -z:
-//   - v2 gives a more stable output format that is easier to parse, especially for renamed/copied files
-//   - -z uses null bytes as separators, which allows us to handle file names with special characters or newlines
+func (f FileStatus) DisplayPath() string {
+	if f.Orig != "" {
+		return f.Orig + " -> " + f.Path
+	}
+	return f.Path
+}
+
 func (r *Repo) Status(ctx context.Context) ([]FileStatus, error) {
-	out, err := r.runGit(ctx, "status", "--percelain=v2", "-z")
+	out, err := r.runGit(ctx, "status", "--porcelain=v2", "-z")
 	if err != nil {
 		return nil, fmt.Errorf("status: %w", err)
 	}
 
-	// null split the output.
-	records := bytes.Split(out, []byte{0})
+	records := bytes.Split([]byte(out), []byte{0})
+	files := make([]FileStatus, 0, len(records))
 
-	var files []FileStatus
 	for i := 0; i < len(records); i++ {
 		rec := string(records[i])
 		if rec == "" {
@@ -62,8 +63,29 @@ func (r *Repo) Status(ctx context.Context) ([]FileStatus, error) {
 
 		switch rec[0] {
 		case '1':
-			// Ordinary changed entry.
-			// Format: 1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
+			f, err := parseOrdinaryEntry(rec)
+			if err == nil {
+				files = append(files, f)
+			}
+		case '2':
+			if i+1 >= len(records) {
+				continue
+			}
+			f, err := parseRenameEntry(rec, string(records[i+1]))
+			if err == nil {
+				files = append(files, f)
+			}
+			i++
+		case 'u':
+			f, err := parseUnmergedEntry(rec)
+			if err == nil {
+				files = append(files, f)
+			}
+		case '?':
+			path := strings.TrimSpace(strings.TrimPrefix(rec, "?"))
+			if path != "" {
+				files = append(files, FileStatus{X: StateUntracked, Y: StateUntracked, Path: path})
+			}
 		}
 	}
 
@@ -71,15 +93,15 @@ func (r *Repo) Status(ctx context.Context) ([]FileStatus, error) {
 }
 
 func parseOrdinaryEntry(rec string) (FileStatus, error) {
-	// Minimum valid length: "1 XY sub mH mI mW hH hI path"
 	parts := strings.Fields(rec)
 	if len(parts) < 9 {
 		return FileStatus{}, fmt.Errorf("malformed ordinary entry: %q", rec)
 	}
-	xy := parts[1] // two-char status code
+	xy := parts[1]
 	if len(xy) != 2 {
-		return FileStatus{}, fmt.Errorf("invalid status code: %q", xy)
+		return FileStatus{}, fmt.Errorf("invalid XY code: %q", xy)
 	}
+
 	return FileStatus{
 		X:    FileState(string(xy[0])),
 		Y:    FileState(string(xy[1])),
@@ -87,33 +109,53 @@ func parseOrdinaryEntry(rec string) (FileStatus, error) {
 	}, nil
 }
 
-// parseRenameEntry parses a rename or copy entry, which has the format:
-// R <XY> <score> <mH> <mI> <mW> <hH> <hI> <path> NUL <orig_path>
 func parseRenameEntry(rec, orig string) (FileStatus, error) {
 	parts := strings.Fields(rec)
-	if len(parts) < 9 {
+	if len(parts) < 10 {
 		return FileStatus{}, fmt.Errorf("malformed rename entry: %q", rec)
 	}
 	xy := parts[1]
 	if len(xy) != 2 {
-		return FileStatus{}, fmt.Errorf("invalid status code: %q", xy)
+		return FileStatus{}, fmt.Errorf("invalid XY code: %q", xy)
 	}
+
 	return FileStatus{
 		X:    FileState(string(xy[0])),
 		Y:    FileState(string(xy[1])),
-		Path: parts[8],
+		Path: parts[9],
 		Orig: orig,
 	}, nil
 }
 
-// parseUnmergedEntry parses an unmerged entry, which has the format:
-// U <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
-// For unmerged entries, the <XY> code is always "UU", but we can still use
-// the same parsing logic as ordinary entries.
-func parseUnmergedPath(rec string) string {
+func parseUnmergedEntry(rec string) (FileStatus, error) {
 	parts := strings.Fields(rec)
-	if len(parts) >= 10 {
-		return parts[9]
+	if len(parts) < 10 {
+		return FileStatus{}, fmt.Errorf("malformed unmerged entry: %q", rec)
 	}
-	return ""
+	xy := parts[1]
+	if len(xy) != 2 {
+		return FileStatus{}, fmt.Errorf("invalid XY code: %q", xy)
+	}
+	return FileStatus{
+		X:    FileState(string(xy[0])),
+		Y:    FileState(string(xy[1])),
+		Path: parts[len(parts)-1],
+	}, nil
+}
+
+func (r *Repo) Stage(ctx context.Context, path string) error {
+	if _, err := r.runGit(ctx, "add", "--", path); err != nil {
+		return fmt.Errorf("stage %q: %w", path, err)
+	}
+	return nil
+}
+
+func (r *Repo) Unstage(ctx context.Context, path string) error {
+	if _, err := r.runGit(ctx, "restore", "--staged", "--", path); err == nil {
+		return nil
+	}
+	if _, err := r.runGit(ctx, "reset", "HEAD", "--", path); err != nil {
+		return fmt.Errorf("unstage %q: %w", path, err)
+	}
+	return nil
 }
