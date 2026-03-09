@@ -1,0 +1,28 @@
+project_name: gitflow-tui
+
+builds:
+  - id: gitflow-tui
+    main: ./cmd/gitflow-tui
+    binary: gitflow-tui
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  github:
+    owner: Polqt
+    name: gitflowtui
