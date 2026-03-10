@@ -18,10 +18,13 @@ func colorizeDiff(raw string, maxWidth int) string {
 	removed := lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
 	hunk := lipgloss.NewStyle().Foreground(lipgloss.Color("45"))
 	meta := lipgloss.NewStyle().Bold(true)
+	wordAdded := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
+	wordRemoved := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
 
 	lines := strings.Split(raw, "\n")
 	for i, line := range lines {
 		line = truncateString(line, maxWidth)
+		line = highlightWordDiff(line, wordAdded, wordRemoved)
 		switch {
 		case strings.HasPrefix(line, "+++ ") || strings.HasPrefix(line, "--- ") || strings.HasPrefix(line, "diff --git"):
 			lines[i] = meta.Render(line)
@@ -37,6 +40,59 @@ func colorizeDiff(raw string, maxWidth int) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func highlightWordDiff(line string, addStyle, removeStyle lipgloss.Style) string {
+	var b strings.Builder
+	i := 0
+	for i < len(line) {
+		nextAdd := strings.Index(line[i:], "{+")
+		nextDel := strings.Index(line[i:], "[-")
+		if nextAdd == -1 && nextDel == -1 {
+			b.WriteString(line[i:])
+			break
+		}
+
+		isAdd := false
+		next := 0
+		switch {
+		case nextAdd == -1:
+			next = nextDel
+		case nextDel == -1:
+			next = nextAdd
+			isAdd = true
+		case nextAdd < nextDel:
+			next = nextAdd
+			isAdd = true
+		default:
+			next = nextDel
+		}
+
+		start := i + next
+		b.WriteString(line[i:start])
+
+		if isAdd {
+			endRel := strings.Index(line[start+2:], "+}")
+			if endRel == -1 {
+				b.WriteString(line[start:])
+				break
+			}
+			end := start + 2 + endRel + 2
+			b.WriteString(addStyle.Render(line[start:end]))
+			i = end
+			continue
+		}
+
+		endRel := strings.Index(line[start+2:], "-]")
+		if endRel == -1 {
+			b.WriteString(line[start:])
+			break
+		}
+		end := start + 2 + endRel + 2
+		b.WriteString(removeStyle.Render(line[start:end]))
+		i = end
+	}
+	return b.String()
 }
 
 func truncateString(s string, maxLen int) string {

@@ -80,6 +80,8 @@ type App struct {
 	ahead         int
 	behind        int
 	rawDiff       string
+	wordDiff      bool
+	diffFromStash bool
 
 	newBranchArmed bool
 	pendingFinish  finishAction
@@ -115,8 +117,9 @@ type opMsg struct {
 }
 
 type diffMsg struct {
-	text string
-	err  error
+	text      string
+	err       error
+	fromStash bool
 }
 
 func NewApp(repo *git.Repo, cfg config.Config) *App {
@@ -248,8 +251,16 @@ func (a *App) loadWorkingDiffCmd() tea.Cmd {
 		return func() tea.Msg {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
-			out, err := a.repo.Diff(ctx, "")
-			return diffMsg{text: out, err: err}
+			var (
+				out string
+				err error
+			)
+			if a.wordDiff {
+				out, err = a.repo.DiffWord(ctx, "")
+			} else {
+				out, err = a.repo.Diff(ctx, "")
+			}
+			return diffMsg{text: out, err: err, fromStash: false}
 		}
 	}
 
@@ -258,11 +269,19 @@ func (a *App) loadWorkingDiffCmd() tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		out, err := a.repo.DiffFile(ctx, path, staged)
+		var (
+			out string
+			err error
+		)
+		if a.wordDiff {
+			out, err = a.repo.DiffFileWord(ctx, path, staged)
+		} else {
+			out, err = a.repo.DiffFile(ctx, path, staged)
+		}
 		if err != nil {
 			return diffMsg{err: err}
 		}
-		return diffMsg{text: out}
+		return diffMsg{text: out, fromStash: false}
 	}
 }
 
@@ -275,8 +294,16 @@ func (a *App) loadStashDiffCmd() tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		out, err := a.repo.StashDiff(ctx, ref)
-		return diffMsg{text: out, err: err}
+		var (
+			out string
+			err error
+		)
+		if a.wordDiff {
+			out, err = a.repo.StashDiffWord(ctx, ref)
+		} else {
+			out, err = a.repo.StashDiff(ctx, ref)
+		}
+		return diffMsg{text: out, err: err, fromStash: true}
 	}
 }
 

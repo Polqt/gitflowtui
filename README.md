@@ -35,6 +35,7 @@ If no path is provided, it uses the current directory.
 - `u`: unstage selected file (Status panel)
 - `c`: commit prompt
 - `a`: stash prompt
+- `w`: toggle diff mode (line/word)
 - `n` then `f|r|h`: create feature/release/hotfix branch
 - `F` / `R` / `H`: finish feature/release/hotfix (opens PR form)
 - `p`: push current branch

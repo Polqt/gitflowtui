@@ -51,7 +51,10 @@ func (r *Repo) Status(ctx context.Context) ([]FileStatus, error) {
 	if err != nil {
 		return nil, fmt.Errorf("status: %w", err)
 	}
+	return parseStatusOutput(out), nil
+}
 
+func parseStatusOutput(out string) []FileStatus {
 	records := bytes.Split([]byte(out), []byte{0})
 	files := make([]FileStatus, 0, len(records))
 
@@ -82,19 +85,22 @@ func (r *Repo) Status(ctx context.Context) ([]FileStatus, error) {
 				files = append(files, f)
 			}
 		case '?':
-			path := strings.TrimSpace(strings.TrimPrefix(rec, "?"))
+			path, err := parseUntrackedEntry(rec)
+			if err != nil {
+				continue
+			}
 			if path != "" {
 				files = append(files, FileStatus{X: StateUntracked, Y: StateUntracked, Path: path})
 			}
 		}
 	}
 
-	return files, nil
+	return files
 }
 
 func parseOrdinaryEntry(rec string) (FileStatus, error) {
-	parts := strings.Fields(rec)
-	if len(parts) < 9 {
+	parts := splitStatusRecord(rec, 9)
+	if len(parts) != 9 {
 		return FileStatus{}, fmt.Errorf("malformed ordinary entry: %q", rec)
 	}
 	xy := parts[1]
@@ -110,8 +116,8 @@ func parseOrdinaryEntry(rec string) (FileStatus, error) {
 }
 
 func parseRenameEntry(rec, orig string) (FileStatus, error) {
-	parts := strings.Fields(rec)
-	if len(parts) < 10 {
+	parts := splitStatusRecord(rec, 10)
+	if len(parts) != 10 {
 		return FileStatus{}, fmt.Errorf("malformed rename entry: %q", rec)
 	}
 	xy := parts[1]
@@ -128,8 +134,8 @@ func parseRenameEntry(rec, orig string) (FileStatus, error) {
 }
 
 func parseUnmergedEntry(rec string) (FileStatus, error) {
-	parts := strings.Fields(rec)
-	if len(parts) < 10 {
+	parts := splitStatusRecord(rec, 11)
+	if len(parts) != 11 {
 		return FileStatus{}, fmt.Errorf("malformed unmerged entry: %q", rec)
 	}
 	xy := parts[1]
@@ -139,8 +145,19 @@ func parseUnmergedEntry(rec string) (FileStatus, error) {
 	return FileStatus{
 		X:    FileState(string(xy[0])),
 		Y:    FileState(string(xy[1])),
-		Path: parts[len(parts)-1],
+		Path: parts[10],
 	}, nil
+}
+
+func parseUntrackedEntry(rec string) (string, error) {
+	if len(rec) < 3 || rec[0] != '?' || rec[1] != ' ' {
+		return "", fmt.Errorf("malformed untracked entry: %q", rec)
+	}
+	return rec[2:], nil
+}
+
+func splitStatusRecord(rec string, n int) []string {
+	return strings.SplitN(rec, " ", n)
 }
 
 func (r *Repo) Stage(ctx context.Context, path string) error {

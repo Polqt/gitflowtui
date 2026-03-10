@@ -7,7 +7,18 @@ import (
 )
 
 func (r *Repo) Diff(ctx context.Context, ref string) (string, error) {
+	return r.diff(ctx, ref, false)
+}
+
+func (r *Repo) DiffWord(ctx context.Context, ref string) (string, error) {
+	return r.diff(ctx, ref, true)
+}
+
+func (r *Repo) diff(ctx context.Context, ref string, wordDiff bool) (string, error) {
 	args := []string{"diff", "--no-color"}
+	if wordDiff {
+		args = append(args, "--word-diff=plain")
+	}
 	if strings.TrimSpace(ref) != "" {
 		args = append(args, ref)
 	}
@@ -19,7 +30,18 @@ func (r *Repo) Diff(ctx context.Context, ref string) (string, error) {
 }
 
 func (r *Repo) DiffFile(ctx context.Context, path string, staged bool) (string, error) {
+	return r.diffFile(ctx, path, staged, false)
+}
+
+func (r *Repo) DiffFileWord(ctx context.Context, path string, staged bool) (string, error) {
+	return r.diffFile(ctx, path, staged, true)
+}
+
+func (r *Repo) diffFile(ctx context.Context, path string, staged bool, wordDiff bool) (string, error) {
 	args := []string{"diff", "--no-color"}
+	if wordDiff {
+		args = append(args, "--word-diff=plain")
+	}
 	if staged {
 		args = append(args, "--cached")
 	}

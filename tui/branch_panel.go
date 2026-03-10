@@ -65,11 +65,11 @@ func branchListItems(branches []git.Branch, cfg gitflow.Config) []list.Item {
 
 		name := b.Name
 		if b.IsHead {
-			name = "? " + name
+			name = "* " + name
 		}
 		label := lipgloss.NewStyle().Foreground(color).Render(name)
 		if b.Upstream != "" {
-			label = fmt.Sprintf("%s  %s ?%d ?%d", label, b.Upstream, b.Ahead, b.Behind)
+			label = fmt.Sprintf("%s  %s  +%d -%d", label, b.Upstream, b.Ahead, b.Behind)
 		}
 
 		items = append(items, branchItem{branch: b, label: label})

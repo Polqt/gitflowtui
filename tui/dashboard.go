@@ -74,6 +74,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.setNotification(msg.err.Error(), true)
 			return a, nil
 		}
+		a.diffFromStash = msg.fromStash
 		a.rawDiff = msg.text
 		a.diff.SetContent(colorizeDiff(msg.text, max(20, a.diff.Width)))
 		a.diff.GotoTop()
@@ -210,6 +211,20 @@ func (a *App) handleKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 	case "a":
 		a.openPrompt(promptStash, "Stash", "Optional stash message", "wip")
 		return false, nil
+
+	case "w":
+		a.wordDiff = !a.wordDiff
+		mode := "line"
+		if a.wordDiff {
+			mode = "word"
+		}
+		a.setNotification("Diff mode: "+mode, false)
+		if a.diffFromStash || a.activePanel == panelStash {
+			if cmd := a.loadStashDiffCmd(); cmd != nil {
+				return false, cmd
+			}
+		}
+		return false, a.loadWorkingDiffCmd()
 
 	case "p":
 		a.loading = true
@@ -547,15 +562,19 @@ func (a *App) statusLine() string {
 	if branch == "" {
 		branch = "(detached)"
 	}
+	mode := "line"
+	if a.wordDiff {
+		mode = "word"
+	}
 
-	left := fmt.Sprintf("%s  \u2191%d \u2193%d", branch, a.ahead, a.behind)
+	left := fmt.Sprintf("%s  diff:%s  +%d -%d", branch, mode, a.ahead, a.behind)
 	if a.loading {
 		left = a.spinner.View() + " " + a.loadingLabel + "  " + left
 	}
 
 	right := a.notification
 	if right == "" {
-		right = "tab:focus  n+f/r/h:new branch  F/R/H:finish  c:commit  a:stash"
+		right = "tab:focus  n+f/r/h:new branch  F/R/H:finish  c:commit  a:stash  w:word diff"
 	}
 
 	combined := left + " | " + right
@@ -578,5 +597,5 @@ func renderPanelBody(content string, height int) string {
 }
 
 func helpLine() string {
-	return "Keys: tab/shift+tab focus, enter action, s stage, u unstage, c commit, a stash, p push, P pull --rebase, n then f/r/h create branches, F/R/H finish, r refresh, q quit"
+	return "Keys: tab/shift+tab focus, enter action, s stage, u unstage, c commit, a stash, w toggle word diff, p push, P pull --rebase, n then f/r/h create branches, F/R/H finish, r refresh, q quit"
 }

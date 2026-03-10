@@ -59,10 +59,23 @@ func (r *Repo) ListStashes(ctx context.Context) ([]StashEntry, error) {
 }
 
 func (r *Repo) StashDiff(ctx context.Context, ref string) (string, error) {
+	return r.stashDiff(ctx, ref, false)
+}
+
+func (r *Repo) StashDiffWord(ctx context.Context, ref string) (string, error) {
+	return r.stashDiff(ctx, ref, true)
+}
+
+func (r *Repo) stashDiff(ctx context.Context, ref string, wordDiff bool) (string, error) {
 	if strings.TrimSpace(ref) == "" {
 		ref = "stash@{0}"
 	}
-	out, err := r.runGit(ctx, "stash", "show", "-p", "--no-color", ref)
+	args := []string{"stash", "show", "-p", "--no-color"}
+	if wordDiff {
+		args = append(args, "--word-diff=plain")
+	}
+	args = append(args, ref)
+	out, err := r.runGit(ctx, args...)
 	if err != nil {
 		return "", fmt.Errorf("stash diff %s: %w", ref, err)
 	}
