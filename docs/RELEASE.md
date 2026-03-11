@@ -9,16 +9,18 @@ go install github.com/Polqt/gitflowtui/cmd/gitflow-tui@latest
 ```
 
 ## 2) Prebuilt binaries via GitHub Releases
-1. Tag a release:
+1. Push the release workflow and GoReleaser config to `main`.
+2. Tag a release:
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
-2. Build artifacts with GoReleaser (config in `.goreleaser.yaml`):
+3. GitHub Actions runs `.github/workflows/release.yml` automatically and publishes archives to the GitHub Release using GoReleaser.
+4. Optional local release build (config in `.goreleaser.yaml`):
 ```bash
 goreleaser release --clean
 ```
-3. Upload archives to GitHub Release.
+The workflow requires `contents: write` permission, which is already set in the workflow file.
 
 ## 3) Package-manager wrappers
 - Homebrew tap (macOS)

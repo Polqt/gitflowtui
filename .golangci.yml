@@ -1,0 +1,134 @@
+version: "2"
+
+run:
+  concurrency: 4
+  timeout: 5m
+  relative-path-mode: gomod
+  modules-download-mode: readonly
+  tests: true
+  allow-parallel-runners: true
+  allow-serial-runners: true
+  go: "1.25"
+
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      colors: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: all
+  disable:
+    # TODO code style-confirm whether to disable permanently: import dependency policy is not defined for this repo yet.
+    - depguard
+    # TODO critical bugs-suggest fix: existing error construction should be standardized deliberately, not auto-edited by config rollout.
+    - err113
+    # TODO code style-confirm whether to disable permanently: requiring every struct field in literals is too strict for current code.
+    - exhaustruct
+    # TODO new features-defer: modern language migration suggestions can be enabled after the legacy cleanup pass.
+    - modernize
+    # TODO code style-confirm whether to disable permanently: style-only suggestions are too noisy for current codebase.
+    - mnd
+    - nlreturn
+    - noinlineerr
+    - revive
+    - varnamelen
+    - wsl
+    - wsl_v5
+    # TODO critical bugs-suggest fix: wrapped external errors need a deliberate refactor across workflow and UI layers.
+    - wrapcheck
+  settings:
+    funlen:
+      lines: 160
+      statements: 120
+    cyclop:
+      max-complexity: 40
+    gocognit:
+      min-complexity: 45
+    gocyclo:
+      min-complexity: 40
+  exclusions:
+    generated: strict
+    rules:
+      # Existing table-driven tests keep the pre-Go-1.22 loop variable copy pattern.
+      - path: ^gitflow/naming_test\.go$
+        linters:
+          - copyloopvar
+      # Duplicate legacy tests and mirrored finish flows stay as-is for now.
+      - path: ^gitflow/naming_test\.go$
+        linters:
+          - dupl
+      - path: ^gitflow/workflow\.go$
+        linters:
+          - dupl
+      # Existing switches intentionally omit sentinel/default states in current flow handling.
+      - path: ^gitflow/gitflow\.go$
+        linters:
+          - exhaustive
+      - path: ^gitflow/naming\.go$
+        linters:
+          - exhaustive
+      - path: ^tui/dashboard\.go$
+        linters:
+          - exhaustive
+      # Command execution is the core behavior of this repo; preserve gosec elsewhere.
+      - path: ^git/exec\.go$
+        text: G204
+        linters:
+          - gosec
+      - path: ^git/git\.go$
+        text: G204
+        linters:
+          - gosec
+      - path: ^git/git\.go$
+        linters:
+          - noctx
+      # Existing repository interface is intentionally broad; keep the check for new interfaces.
+      - path: ^git/git\.go$
+        linters:
+          - interfacebloat
+      # Existing error formatting and helper naming stay untouched in current files.
+      - path: ^git/commit\.go$
+        linters:
+          - perfsprint
+      - path: ^gitflow/naming\.go$
+        linters:
+          - perfsprint
+      - path: ^tui/styles\.go$
+        linters:
+          - predeclared
+      # Current dashboard strings are intentionally verbose; keep these linters on elsewhere.
+      - path: ^tui/dashboard\.go$
+        linters:
+          - goconst
+          - ireturn
+          - lll
+      - path: ^tui/pr_template\.go$
+        linters:
+          - goconst
+      # Legacy in-package tests are kept for access to unexported helpers.
+      - path: ^git/status_test\.go$
+        linters:
+          - testpackage
+      - path: ^gitflow/naming_test\.go$
+        linters:
+          - testpackage
+      # Existing helper APIs are kept stable; keep new findings elsewhere.
+      - path: ^tui/app\.go$
+        linters:
+          - unparam
+      - path: ^tui/diff_viewer\.go$
+        linters:
+          - wastedassign
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: strict
