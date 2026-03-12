@@ -2,10 +2,6 @@
 
 A GitFlow-aware terminal UI built with Bubble Tea for day-to-day branch, status, diff, stash, and release workflows.
 
-## About
-
-`gitflow-tui` is a keyboard-first CLI app for developers who use GitFlow-style branching and want fewer context switches than raw Git commands or GUI tools.
-
 ## Features
 
 - Branch, log, status, stash, and diff workflows
@@ -85,21 +81,6 @@ go run ./cmd/gitflow-tui /path/to/any/git/repository
 ## Contributing
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, testing, linting, and PR guidance.
-
-## Suggested GitHub Topics
-
-Add these topics in your repository settings to improve discoverability:
-
-- `golang`
-- `cli`
-- `tui`
-- `bubbletea`
-- `lipgloss`
-- `git`
-- `gitflow`
-- `developer-tools`
-- `terminal-ui`
-- `opensource`
 
 ## Distribution
 
