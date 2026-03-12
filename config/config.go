@@ -8,6 +8,8 @@ type Config struct {
 	DevelopBranch string
 	RemoteName    string
 	LogLimit      int
+	WSAddr        string
+	WSPath        string
 }
 
 func Default() Config {
@@ -16,6 +18,7 @@ func Default() Config {
 		DevelopBranch: "develop",
 		RemoteName:    "origin",
 		LogLimit:      80,
+		WSPath:        "/ws",
 	}
 }
 
@@ -31,6 +34,12 @@ func Load() Config {
 	}
 	if v := os.Getenv("GITFLOW_TUI_REMOTE"); v != "" {
 		cfg.RemoteName = v
+	}
+	if v := os.Getenv("GITFLOW_TUI_WS_ADDR"); v != "" {
+		cfg.WSAddr = v
+	}
+	if v := os.Getenv("GITFLOW_TUI_WS_PATH"); v != "" {
+		cfg.WSPath = v
 	}
 
 	return cfg

@@ -49,9 +49,10 @@ const (
 
 // App is the Bubble Tea root model.
 type App struct {
-	repo     *git.Repo
-	workflow *gitflow.Workflow
-	cfg      config.Config
+	repo      *git.Repo
+	workflow  *gitflow.Workflow
+	cfg       config.Config
+	eventSink EventSink
 
 	width  int
 	height int
@@ -122,7 +123,7 @@ type diffMsg struct {
 	fromStash bool
 }
 
-func NewApp(repo *git.Repo, cfg config.Config) *App {
+func NewApp(repo *git.Repo, cfg config.Config, opts ...AppOption) *App {
 	workflowCfg := gitflow.DefaultConfig()
 	workflowCfg.MainBranch = cfg.MainBranch
 	workflowCfg.DevelopBranch = cfg.DevelopBranch
@@ -141,7 +142,7 @@ func NewApp(repo *git.Repo, cfg config.Config) *App {
 	p.Prompt = "> "
 	p.CharLimit = 160
 
-	return &App{
+	app := &App{
 		repo:         repo,
 		workflow:     gitflow.New(repo, workflowCfg),
 		cfg:          cfg,
@@ -157,6 +158,12 @@ func NewApp(repo *git.Repo, cfg config.Config) *App {
 		styles:       defaultStyles(),
 		loadingLabel: "Refreshing",
 	}
+
+	for _, opt := range opts {
+		opt(app)
+	}
+
+	return app
 }
 
 func newPanelList() list.Model {
@@ -320,6 +327,7 @@ func (a *App) openPrompt(mode promptMode, title, hint, placeholder string) {
 func (a *App) setNotification(msg string, isError bool) {
 	a.notification = strings.TrimSpace(msg)
 	a.notifError = isError
+	a.publishStatus(a.notification, isError)
 }
 
 func (a *App) opMessage(msg opMsg) string {

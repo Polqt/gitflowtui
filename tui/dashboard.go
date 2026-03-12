@@ -54,6 +54,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		a.applySnapshot(msg.snapshot)
+		a.publishSnapshot(msg.snapshot)
 		cmds = append(cmds, a.loadWorkingDiffCmd())
 		if len(msg.snapshot.Stashes) > 0 {
 			cmds = append(cmds, a.loadStashDiffCmd())

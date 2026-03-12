@@ -49,6 +49,26 @@ cd gitflowtui
 go run ./cmd/gitflow-tui /path/to/any/git/repository
 ```
 
+## Realtime Websocket Stream
+
+Enable websocket broadcasting to stream app state changes to external tools:
+
+```bash
+GITFLOW_TUI_WS_ADDR=127.0.0.1:7777 GITFLOW_TUI_WS_PATH=/ws gitflow-tui [path-to-repo]
+```
+
+The server sends JSON events for notifications and repository snapshots whenever the UI refreshes.
+
+Minimal client example:
+
+```js
+const ws = new WebSocket("ws://127.0.0.1:7777/ws");
+ws.onmessage = (event) => {
+  const payload = JSON.parse(event.data);
+  console.log(payload.type, payload);
+};
+```
+
 ## Keybindings
 
 - `tab` / `shift+tab`: switch focused panel
@@ -77,6 +97,8 @@ go run ./cmd/gitflow-tui /path/to/any/git/repository
 - `GITFLOW_TUI_MAIN` (default: `main`)
 - `GITFLOW_TUI_DEVELOP` (default: `develop`)
 - `GITFLOW_TUI_REMOTE` (default: `origin`)
+- `GITFLOW_TUI_WS_ADDR` (example: `127.0.0.1:7777`; empty = disabled)
+- `GITFLOW_TUI_WS_PATH` (default: `/ws`)
 
 ## Contributing
 
