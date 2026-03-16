@@ -10,6 +10,7 @@ type Config struct {
 	LogLimit      int
 	WSAddr        string
 	WSPath        string
+	AIKey         string
 }
 
 func Default() Config {
@@ -18,6 +19,7 @@ func Default() Config {
 		DevelopBranch: "develop",
 		RemoteName:    "origin",
 		LogLimit:      80,
+		WSAddr:        "127.0.0.1:7373",
 		WSPath:        "/ws",
 	}
 }
@@ -35,12 +37,18 @@ func Load() Config {
 	if v := os.Getenv("GITFLOW_TUI_REMOTE"); v != "" {
 		cfg.RemoteName = v
 	}
+	
+	if os.Getenv("GITFLOW_TUI_WS_DISABLE") == "1" {
+		cfg.WSAddr = ""
+	}
 	if v := os.Getenv("GITFLOW_TUI_WS_ADDR"); v != "" {
 		cfg.WSAddr = v
 	}
 	if v := os.Getenv("GITFLOW_TUI_WS_PATH"); v != "" {
 		cfg.WSPath = v
 	}
+
+	cfg.AIKey = os.Getenv("ANTHROPIC_API_KEY")
 
 	return cfg
 }
