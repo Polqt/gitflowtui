@@ -1,0 +1,3 @@
+Summarise what this stashed diff contains so the developer knows whether to pop it:
+
+{{.Diff}}

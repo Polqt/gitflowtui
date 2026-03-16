@@ -1,0 +1,8 @@
+Explain what these changes do:
+ 
+{{.Diff}}
+ 
+Cover:
+• What behaviour changed (be specific about functions/types/routes affected)
+• Any side-effects, performance implications, or risks
+• Whether the change looks complete or something seems missing

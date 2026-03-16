@@ -1,0 +1,28 @@
+Analyze this repository's branch health and provide prioritized recommendations.
+
+Today          : {{.Today}}
+Current branch : {{.Head}}
+
+BRANCHES (format: [*=HEAD] name  upstream  +ahead -behind):
+{{.BranchLines}}
+
+Recommend actions covering:
+- Stale or abandoned feature branches (no activity implied by large behind count)
+- Release/hotfix branches ready to finish
+- Branches at high conflict risk (far behind develop or main)
+- Branches that should be deleted (already merged)
+
+Respond with JSON only:
+{
+  "summary": "<2-3 sentence overview of branch health>",
+  "recommendations": [
+    {
+      "branch":   "<branch name>",
+      "action":   "<merge|delete|rebase|finish|review>",
+      "reason":   "<specific reason referencing ahead/behind counts or branch age>",
+      "priority": <1|2|3>
+    }
+  ],
+  "stale_branches": ["<n>"],
+  "risky_branches": ["<n>"]
+}

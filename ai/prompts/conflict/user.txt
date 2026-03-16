@@ -1,0 +1,22 @@
+Analyze these predicted merge conflicts before the developer runs git merge.
+
+Source branch : {{.SourceBranch}} ({{.CommitsAhead}} commits ahead of merge-base)
+Target branch : {{.TargetBranch}}
+Files changed by source: {{.FilesChanged}}
+Files with predicted conflicts: {{.ConflictCount}}
+
+CONFLICTING FILES:
+{{.ConflictDigest}}
+
+Respond with this exact JSON (no markdown, no extra keys):
+{
+  "summary":        "<2-3 sentences: overall risk, what areas conflict, what to watch for>",
+  "recommendation": "<1-2 actionable sentences: what the dev should do before/during merge>",
+  "level":          <0=clean 1=low 2=medium 3=high 4=critical>,
+  "file_explanations": {
+    "<filepath>": {
+      "explanation": "<what our side does, what their side does, why they conflict>",
+      "severity":    <0-4>
+    }
+  }
+}
