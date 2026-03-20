@@ -49,6 +49,28 @@ cd gitflowtui
 go run ./cmd/gitflow-tui /path/to/any/git/repository
 ```
 
+## AI Features
+
+AI features work with two backends — pick whichever is free for you:
+
+**Option A — Ollama (completely free, runs on your machine)**
+1. Install from https://ollama.ai (Windows, Mac, Linux)
+2. Run: `ollama pull llama3`
+3. Start gitflow-tui — AI activates automatically, no config needed
+
+**Option B — Anthropic API (free tier available)**
+1. Sign up at https://console.anthropic.com
+2. Get your free API key
+3. `export ANTHROPIC_API_KEY=sk-ant-...`
+
+If neither is configured, the tool works exactly as before —
+AI panels show a hint but nothing breaks.
+
+**AI keybindings**
+- `X`        — predict merge conflicts before you merge (works on feature/release/hotfix)
+- `E`        — explain current diff or stash in plain English (streams word by word)
+- `ctrl+a`   — suggest a commit message from your staged changes (in commit prompt)
+
 ## Realtime Websocket Stream
 
 Enable websocket broadcasting to stream app state changes to external tools:
@@ -103,6 +125,15 @@ ws.onmessage = (event) => {
 ## Contributing
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, testing, linting, and PR guidance.
+
+## Documentation
+
+- [Installation (no Go required)](docs/INSTALL.md)
+- [Setup & Configuration](docs/SETUP.md)
+- [AI Features](docs/AI.md)
+- [WebSocket Integration](docs/WEBSOCKET.md)
+- [Release Guide](docs/RELEASE.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Distribution
 

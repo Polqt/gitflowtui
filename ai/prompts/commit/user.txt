@@ -1,0 +1,26 @@
+Analyze this staged diff and produce a commit suggestion.
+
+RULES:
+- Follow Conventional Commits spec: <type>(<scope>): <imperative description>
+- Types: feat, fix, chore, docs, refactor, test, perf, ci, build, style
+- Description: imperative mood, lowercase, no trailing period, max 72 chars
+- Scope: lowercase component name, omit if not clearly scoped
+- Detect breaking changes: removed exports, changed function signatures,
+  removed/renamed fields in public types, schema changes
+- Detect mixed concerns: feature code + unrelated refactor, multiple bug
+  fixes in unrelated files, docs mixed with logic changes
+- If mixed, suggest 2-4 separate commit messages in split_suggestions
+
+RESPOND WITH THIS EXACT JSON SCHEMA (no markdown, no extra keys):
+{
+  "message":           "<full conventional commit subject>",
+  "type":              "<commit type>",
+  "scope":             "<scope or empty string>",
+  "body":              "<optional 1-2 sentence why, empty if obvious>",
+  "breaking":          <true|false>,
+  "mixed_concerns":    <true|false>,
+  "split_suggestions": ["<commit 1>", "<commit 2>"]
+}
+
+STAGED DIFF:
+{{.Diff}}
