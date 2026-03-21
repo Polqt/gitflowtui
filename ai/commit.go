@@ -10,13 +10,15 @@ import (
 type CommitSuggestion struct {
 	// Message is the suggested commit message for the merge commit, if applicable.
 	// "feat(auth): add JWT refresh token rotation"
-	Message          string   `json:"message"`
-	Type             string   `json:"type"`                        // "merge" or "rebase"
-	Scope            string   `json:"scope"`                       // e.g. "auth"
-	Body             string   `json:"body"`                        // A more detailed explanation of the commit, if applicable.
-	Breaking         bool     `json:"breaking"`                    // Whether this commit includes a breaking change, if applicable.
-	MixedConcerns    bool     `json:"mixed_concerns"`              // Whether this commit includes mixed concerns (e.g. both a bug fix and a new feature), if applicable.
-	SplitSuggestions []string `json:"split_suggestions,omitempty"` // If MixedConcerns is true, this field may contain suggestions for how to split the commit into multiple commits with more focused scopes.
+	Message  string `json:"message"`
+	Type     string `json:"type"`     // Conventional commit type.
+	Scope    string `json:"scope"`    // Optional scope, for example "auth".
+	Body     string `json:"body"`     // Optional explanation body.
+	Breaking bool   `json:"breaking"` // Whether the change is breaking.
+	//nolint:tagliatelle // prompt contract uses snake_case keys.
+	MixedConcerns bool `json:"mixed_concerns"` // Whether the diff should be split.
+	//nolint:tagliatelle // prompt contract uses snake_case keys.
+	SplitSuggestions []string `json:"split_suggestions,omitempty"`
 }
 
 // maxDiffBytes is the maximum diff length sent to the API.
@@ -44,12 +46,14 @@ func (a *Advisor) SuggestCommit(ctx context.Context, stagedDiff string) (*Commit
 		}
 	}
 
-	userPrompt, err := render(prompts.CommitUser, CommitPromptData{Diff: stagedDiff})
+	promptSet := loadPrompts()
+
+	userPrompt, err := render(promptSet.CommitUser, CommitPromptData{Diff: stagedDiff})
 	if err != nil {
 		return nil, fmt.Errorf("SuggestCommit: %w", err)
 	}
 
-	raw, err := a.client.complete(ctx, prompts.CommitSystem, userPrompt, 600)
+	raw, err := a.client.complete(ctx, promptSet.CommitSystem, userPrompt, 600)
 	if err != nil {
 		return nil, fmt.Errorf("SuggestCommit: %w", err)
 	}
@@ -62,7 +66,6 @@ func (a *Advisor) SuggestCommit(ctx context.Context, stagedDiff string) (*Commit
 
 	a.cache.set(cacheKey, raw)
 	return &suggestion, nil
-
 }
 
 func stripJSONFences(s string) string {

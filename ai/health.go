@@ -11,7 +11,7 @@ import (
 )
 
 type BranchHealthReport struct {
-	GeneratedAt      time.Time
+	GeneratedAt     time.Time
 	Summary         string
 	Recommendations []BranchRecommendation
 	StaleBranches   []string
@@ -28,23 +28,29 @@ type BranchRecommendation struct {
 func (r BranchRecommendation) PriorityLabel() string {
 	switch r.Priority {
 	case 1:
-		return "🔴 High"
+		return "High"
 	case 2:
-		return "🟡 Medium"
+		return "Medium"
 	default:
-		return "⚪ Low"
+		return "Low"
 	}
 }
 
 // AnalyzeBranchHealth generates a prioritized health report for all branches.
 // Results are cached for 30 minutes.
-// Returns (nil, ErrNotAvailable) if no API key is set.
-func (a *Advisor) AnalyzeBranchHealth(ctx context.Context, branches []git.Branch, head string) (*BranchHealthReport, error) {
+func (a *Advisor) AnalyzeBranchHealth(
+	ctx context.Context,
+	branches []git.Branch,
+	head string,
+) (*BranchHealthReport, error) {
 	if !a.Available() {
 		return nil, ErrNotAvailable
 	}
 	if len(branches) == 0 {
-		return &BranchHealthReport{GeneratedAt: time.Now(), Summary: "No local branches found."}, nil
+		return &BranchHealthReport{
+			GeneratedAt: time.Now(),
+			Summary:     "No local branches found.",
+		}, nil
 	}
 
 	branchLines := formatBranchLines(branches)
@@ -57,7 +63,8 @@ func (a *Advisor) AnalyzeBranchHealth(ctx context.Context, branches []git.Branch
 		}
 	}
 
-	userPrompt, err := render(prompts.HealthUser, HealthPromptData{
+	promptSet := loadPrompts()
+	userPrompt, err := render(promptSet.HealthUser, HealthPromptData{
 		Today:       time.Now().Format("2006-01-02"),
 		Head:        head,
 		BranchLines: branchLines,
@@ -66,7 +73,7 @@ func (a *Advisor) AnalyzeBranchHealth(ctx context.Context, branches []git.Branch
 		return nil, fmt.Errorf("AnalyzeBranchHealth: %w", err)
 	}
 
-	raw, err := a.client.complete(ctx, prompts.HealthSystem, userPrompt, 1800)
+	raw, err := a.client.complete(ctx, promptSet.HealthSystem, userPrompt, 1800)
 	if err != nil {
 		return nil, fmt.Errorf("AnalyzeBranchHealth: %w", err)
 	}
@@ -93,9 +100,15 @@ func formatBranchLines(branches []git.Branch) string {
 		if upstream == "" {
 			upstream = "(no upstream)"
 		}
-		sb.WriteString(fmt.Sprintf("%s %-45s  %-35s  +%-3d -%-3d\n",
-			head, b.Name, upstream, b.Ahead, b.Behind,
-		))
+		_, _ = fmt.Fprintf(
+			&sb,
+			"%s %-45s  %-35s  +%-3d -%-3d\n",
+			head,
+			b.Name,
+			upstream,
+			b.Ahead,
+			b.Behind,
+		)
 	}
 	return sb.String()
 }
@@ -104,8 +117,10 @@ func parseHealthResponse(raw string) (*BranchHealthReport, error) {
 	var result struct {
 		Summary         string                 `json:"summary"`
 		Recommendations []BranchRecommendation `json:"recommendations"`
-		StaleBranches   []string               `json:"stale_branches"`
-		RiskyBranches   []string               `json:"risky_branches"`
+		//nolint:tagliatelle // prompt contract uses snake_case keys.
+		StaleBranches []string `json:"stale_branches"`
+		//nolint:tagliatelle // prompt contract uses snake_case keys.
+		RiskyBranches []string `json:"risky_branches"`
 	}
 	if err := json.Unmarshal([]byte(raw), &result); err != nil {
 		return nil, fmt.Errorf("unmarshal health JSON: %w", err)

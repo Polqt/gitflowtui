@@ -24,12 +24,13 @@ func (a *Advisor) ExplainDiff(ctx context.Context, diff string) (StreamResult, e
 		diff = diff[:maxExplainDiffBytes] + "\n\n... (diff truncated)"
 	}
 
-	userPrompt, err := render(prompts.ExplainDiffUser, ExplainPromptData{Diff: diff})
+	promptSet := loadPrompts()
+	userPrompt, err := render(promptSet.ExplainDiffUser, ExplainPromptData{Diff: diff})
 	if err != nil {
 		return StreamResult{}, fmt.Errorf("ExplainDiff: %w", err)
 	}
 
-	return a.client.stream(ctx, prompts.ExplainDiffSys, userPrompt, 400), nil
+	return a.client.stream(ctx, promptSet.ExplainDiffSys, userPrompt, 400), nil
 }
 
 // ExplainStash streams a plain-English summary of a stash entry's diff.
@@ -46,10 +47,11 @@ func (a *Advisor) ExplainStash(ctx context.Context, stashDiff string) (StreamRes
 		stashDiff = stashDiff[:maxExplainDiffBytes] + "\n\n... (truncated)"
 	}
 
-	userPrompt, err := render(prompts.ExplainStashUser, ExplainPromptData{Diff: stashDiff})
+	promptSet := loadPrompts()
+	userPrompt, err := render(promptSet.ExplainStashUser, ExplainPromptData{Diff: stashDiff})
 	if err != nil {
 		return StreamResult{}, fmt.Errorf("ExplainStash: %w", err)
 	}
 
-	return a.client.stream(ctx, prompts.ExplainStashSys, userPrompt, 250), nil
+	return a.client.stream(ctx, promptSet.ExplainStashSys, userPrompt, 250), nil
 }

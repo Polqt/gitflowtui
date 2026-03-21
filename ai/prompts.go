@@ -8,16 +8,10 @@ import (
 )
 
 // promptFS embeds every .txt file under the prompts/ directory tree.
-// Using embed.FS instead of individual //go:embed directives means:
-//   - A single directive covers all current and future prompt files.
-//   - The binary is fully self-contained — no external assets required.
-//   - Prompt files can be read, reviewed, and diffed as plain text in git
-//     without ever opening a Go source file.
 //
 //go:embed prompts
 var promptFS embed.FS
 
-// promptSet
 type promptSet struct {
 	CommitSystem     string
 	CommitUser       *template.Template
@@ -31,9 +25,7 @@ type promptSet struct {
 	HealthUser       *template.Template
 }
 
-var prompts = mustLoadPrompts()
-
-func mustLoadPrompts() promptSet {
+func loadPrompts() promptSet {
 	load := func(path string) string {
 		b, err := promptFS.ReadFile(path)
 		if err != nil {
@@ -72,15 +64,12 @@ func render(t *template.Template, data any) (string, error) {
 	return buf.String(), nil
 }
 
-// ─── Template data structs ────────────────────────────────────────────────────
-// Each struct maps 1-to-1 with the {{.Field}} placeholders in its .txt file.
-// Keeping them here (not scattered across feature files) makes it trivial to
-// see every variable a prompt template can access.
-
+// CommitPromptData maps to prompts/commit/user.txt.
 type CommitPromptData struct {
 	Diff string
 }
 
+// ConflictPromptData maps to prompts/conflict/user.txt.
 type ConflictPromptData struct {
 	SourceBranch   string
 	CommitsAhead   int
@@ -90,10 +79,12 @@ type ConflictPromptData struct {
 	ConflictDigest string
 }
 
+// ExplainPromptData maps to prompts/explain/*.txt.
 type ExplainPromptData struct {
 	Diff string
 }
 
+// HealthPromptData maps to prompts/health/user.txt.
 type HealthPromptData struct {
 	Today       string
 	Head        string

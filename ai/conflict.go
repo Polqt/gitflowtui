@@ -38,7 +38,7 @@ func (r RiskLevel) Label() string {
 	}
 }
 
-// ANSIColor returns the 256-color ansi code for lipgloss
+// ANSIColor returns the 256-color ANSI code for lipgloss.
 func (r RiskLevel) ANSIColor() string {
 	switch r {
 	case RiskClean:
@@ -56,7 +56,7 @@ func (r RiskLevel) ANSIColor() string {
 	}
 }
 
-// This type is a single predicted conflict within a file.
+// ConflictFile is a single predicted conflict within a file.
 type ConflictFile struct {
 	Path      string // The file path relative to the repo root
 	HunkCount int    // The number of hunks in this file that are predicted to conflict
@@ -69,12 +69,13 @@ type ConflictFile struct {
 }
 
 type MergeRisk struct {
-	SourceBranch   string // The branch we're merging from (e.g. feature/foo)
-	TargetBranch   string // The branch we're merging into (e.g. main)
-	Level          RiskLevel
-	AutoResolvable bool // Whether git can auto-resolve the conflict without user intervention (e.g. by choosing one side or the other)
-	CommitsAhead   int  // Number of commits in source branch that are not in target branch
-	FilesChanged   int  // Total number of files changed in the merge (including non-conflicting files)
+	SourceBranch string // The branch we're merging from (e.g. feature/foo)
+	TargetBranch string // The branch we're merging into (e.g. main)
+	Level        RiskLevel
+	// AutoResolvable reports whether git can auto-resolve the merge.
+	AutoResolvable bool
+	CommitsAhead   int // Number of commits in source branch that are not in target branch
+	FilesChanged   int // Total number of files changed in the merge (including non-conflicting files)
 	ConflictFiles  []ConflictFile
 	Summary        string // A human-friendly summary of the merge risk, suitable for display in the UI
 	Recommendation string // A human-friendly recommendation for how to proceed, suitable for display in the UI
@@ -86,7 +87,7 @@ type MergeRisk struct {
 func (a *Advisor) PredictMergeRisk(ctx context.Context, repo *git.Repo, source, target string) (*MergeRisk, error) {
 	dryRun, err := repo.DryRunMerge(ctx, source, target)
 	if err != nil {
-		return nil, fmt.Errorf("Predict Merge Risk: %w", err)
+		return nil, fmt.Errorf("predict merge risk: %w", err)
 	}
 
 	risk := &MergeRisk{
@@ -119,7 +120,7 @@ func (a *Advisor) PredictMergeRisk(ctx context.Context, repo *git.Repo, source, 
 
 	if !a.Available() {
 		risk.Summary = fmt.Sprintf(
-			"%d file(s) will conflict (%d total hunk(s)). Set ANTHROPIC_API_KEY for semantic analysis.",
+			"%d file(s) will conflict (%d total hunk(s)). Install Ollama or set ANTHROPIC_API_KEY for semantic analysis.",
 			len(risk.ConflictFiles), totalHunks(risk.ConflictFiles),
 		)
 		risk.Recommendation = "Resolve conflicts starting with the highest-hunk-count files."
@@ -135,28 +136,41 @@ func (a *Advisor) PredictMergeRisk(ctx context.Context, repo *git.Repo, source, 
 		}
 	}
 
-	userPrompt, err := render(prompts.ConflictUser, ConflictPromptData{
-		SourceBranch:   source,
-		CommitsAhead:   dryRun.CommitsAhead,
-		TargetBranch:   target,
-		FilesChanged:   dryRun.FilesChanged,
-		ConflictCount:  len(risk.ConflictFiles),
-		ConflictDigest: conflictDigest,
-	})
-	if err != nil {
+	promptSet := loadPrompts()
+	userPrompt, ok := func() (string, bool) {
+		rendered, err := render(promptSet.ConflictUser, ConflictPromptData{
+			SourceBranch:   source,
+			CommitsAhead:   dryRun.CommitsAhead,
+			TargetBranch:   target,
+			FilesChanged:   dryRun.FilesChanged,
+			ConflictCount:  len(risk.ConflictFiles),
+			ConflictDigest: conflictDigest,
+		})
+		if err != nil {
+			return "", false
+		}
+		return rendered, true
+	}()
+	if !ok {
 		return risk, nil
 	}
 
-	raw, err := a.client.complete(ctx, prompts.ConflictSystem, userPrompt, 1500)
-	if err != nil {
-		risk.Summary = fmt.Sprintf("%d file(s) will conflict. AI analysis failed: %v", len(risk.ConflictFiles), err)
+	raw, completeErr := a.client.complete(ctx, promptSet.ConflictSystem, userPrompt, 1500)
+	if completeErr != nil {
+		risk.Summary = fmt.Sprintf("%d file(s) will conflict. AI analysis failed: %v", len(risk.ConflictFiles), completeErr)
 		risk.Recommendation = "Review each conflicting file before merging."
 		return risk, nil
 	}
 
 	raw = stripJSONFences(raw)
-	aiResult, err := parseConflictAIResponse(raw)
-	if err != nil {
+	aiResult, ok := func() (*conflictAIResponse, bool) {
+		result, err := parseConflictAIResponse(raw)
+		if err != nil {
+			return nil, false
+		}
+		return result, true
+	}()
+	if !ok {
 		risk.Summary = fmt.Sprintf("%d file(s) will conflict.", len(risk.ConflictFiles))
 		return risk, nil
 	}
@@ -165,11 +179,12 @@ func (a *Advisor) PredictMergeRisk(ctx context.Context, repo *git.Repo, source, 
 	return applyAIToRisk(risk, aiResult), nil
 }
 
-// AI response types
+// conflictAIResponse matches the prompt JSON contract.
 type conflictAIResponse struct {
-	Summary          string `json:"summary"`
-	Recommendation   string `json:"recommendation"`
-	Level            int    `json:"level"`
+	Summary        string `json:"summary"`
+	Recommendation string `json:"recommendation"`
+	Level          int    `json:"level"`
+	//nolint:tagliatelle // prompt contract uses snake_case keys.
 	FileExplanations map[string]struct {
 		Explanation string `json:"explanation"`
 		Severity    int    `json:"severity"`
@@ -201,12 +216,12 @@ func applyAIToRisk(risk *MergeRisk, ai *conflictAIResponse) *MergeRisk {
 	return risk
 }
 
-// Helpers
+// buildConflictDigest formats conflict context for the AI prompt.
 func buildConflictDigest(files []ConflictFile) string {
 	const maxContentPerFile = 600
 	var sb strings.Builder
 	for _, f := range files {
-		sb.WriteString(fmt.Sprintf("FILE: %s (%d hunk(s))\n", f.Path, f.HunkCount))
+		_, _ = fmt.Fprintf(&sb, "FILE: %s (%d hunk(s))\n", f.Path, f.HunkCount)
 		context := f.ConflictContent
 		if len(context) > maxContentPerFile {
 			context = context[:maxContentPerFile] + "\n... (truncated)"

@@ -20,7 +20,7 @@ type cacheEntry struct {
 	accessedAt time.Time // Track last access time for LRU eviction
 }
 
-// get retrieves a value from the cache if it exists and is not expired.
+// newCache creates a bounded in-memory cache.
 func newCache(maxSize int, ttl time.Duration) *cache {
 	if maxSize <= 0 {
 		maxSize = 50 // Default max size
@@ -97,13 +97,6 @@ func (c *cache) set(key, value string) {
 		expiresAt:  now.Add(c.ttl),
 		accessedAt: now,
 	}
-}
-
-// set adds a value to the cache with the specified key and sets an expiration time.
-func (c *cache) invalidate(key string) {
-	c.mu.Lock()
-	delete(c.entries, key)
-	c.mu.Unlock()
 }
 
 // flush clears all entries from the cache.

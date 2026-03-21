@@ -2,20 +2,23 @@ package ai
 
 import "errors"
 
-// ErrNotAvailable is returned when ANTHROPIC_API_KEY is not set.
-// The TUI uses this to hide AI panels rather than show error messages.
-var ErrNotAvailable = errors.New("AI advisor unavailable: set ANTHROPIC_API_KEY")
+// ErrNotAvailable is returned when no AI backend is available.
+var ErrNotAvailable = errors.New("AI advisor unavailable: set ANTHROPIC_API_KEY or install Ollama")
 
 // ErrEmptyInput is returned when a required diff or branch name is blank.
 var ErrEmptyInput = errors.New("input cannot be empty")
 
-// ErrAPIFailure wraps upstream Anthropic API errors.
-// Callers can check errors.As(err, &APIError{}) to inspect the type.
-type ErrAPIFailure struct {
+// APIError wraps upstream AI backend errors.
+type APIError struct {
+	Backend string
 	Type    string
 	Message string
 }
 
-func (e *ErrAPIFailure) Error() string {
-	return "anthropic API error (" + e.Type + "): " + e.Message
+func (e *APIError) Error() string {
+	prefix := "AI backend"
+	if e.Backend != "" {
+		prefix = e.Backend
+	}
+	return prefix + " error (" + e.Type + "): " + e.Message
 }
