@@ -6,27 +6,31 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// colorizeDiff applies ANSI colour to a unified diff string.
+// It honours the shared colour palette defined in styles.go.
 func colorizeDiff(raw string, maxWidth int) string {
 	if strings.TrimSpace(raw) == "" {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("No diff")
+		return lipgloss.NewStyle().Foreground(colorMuted).Render("No diff")
 	}
 	if maxWidth <= 0 {
 		maxWidth = 120
 	}
 
-	added := lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
-	removed := lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	hunk := lipgloss.NewStyle().Foreground(lipgloss.Color("45"))
-	meta := lipgloss.NewStyle().Bold(true)
-	wordAdded := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
-	wordRemoved := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+	added := lipgloss.NewStyle().Foreground(colorGreen)
+	removed := lipgloss.NewStyle().Foreground(colorRed)
+	hunk := lipgloss.NewStyle().Foreground(colorCyan)
+	meta := lipgloss.NewStyle().Bold(true).Foreground(colorFgBold)
+	wordAdd := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
+	wordDel := lipgloss.NewStyle().Foreground(colorRed).Bold(true)
 
 	lines := strings.Split(raw, "\n")
 	for i, line := range lines {
 		line = truncateString(line, maxWidth)
-		line = highlightWordDiff(line, wordAdded, wordRemoved)
+		line = highlightWordDiff(line, wordAdd, wordDel)
 		switch {
-		case strings.HasPrefix(line, "+++ ") || strings.HasPrefix(line, "--- ") || strings.HasPrefix(line, "diff --git"):
+		case strings.HasPrefix(line, "+++ "),
+			strings.HasPrefix(line, "--- "),
+			strings.HasPrefix(line, "diff --git"):
 			lines[i] = meta.Render(line)
 		case strings.HasPrefix(line, "@@"):
 			lines[i] = hunk.Render(line)

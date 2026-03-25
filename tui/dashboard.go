@@ -664,37 +664,50 @@ func (a *App) View() string {
 		return "loading..."
 	}
 
-	title := a.styles.title.Render(fmt.Sprintf(" GitFlow TUI  %s ", filepath.Base(a.repo.Root)))
+	// ── title bar ────────────────────────────────────────────────────────────
+	repoName := filepath.Base(a.repo.Root)
+	aiIndicator := ""
+	if a.advisor != nil && a.advisor.Available() {
+		aiIndicator = "  " + a.styles.badge.ai.Render("✦ AI:"+a.advisor.Backend)
+	}
+	titleText := lipgloss.NewStyle().Bold(true).Foreground(colorFgBold).Render(repoName) + aiIndicator
+	title := a.styles.title.Render("  GitFlow TUI  " + titleText + "  ")
 
-	contentHeight := a.height - 2 // title + status
+	// ── height budget ────────────────────────────────────────────────────────
+	contentHeight := a.height - 2 // title line + status line
 	if a.showHelp {
-		contentHeight--
+		contentHeight -= 2 // help wraps to 2 lines at narrow widths; safe to over-subtract by 1
 	}
 	contentHeight = max(contentHeight, 10)
 	contentWidth := max(a.width-2, 40)
 
+	// ── column widths (weight-based) ─────────────────────────────────────────
 	leftWeight, centerWeight, rightWeight := 3, 3, 4
 	totalWeight := leftWeight + centerWeight + rightWeight
 	leftWidth := (contentWidth * leftWeight) / totalWeight
 	centerWidth := (contentWidth * centerWeight) / totalWeight
 	rightWidth := contentWidth - leftWidth - centerWidth
 
+	// ── row heights ───────────────────────────────────────────────────────────
 	leftTopHeight := max(6, (contentHeight*2)/3)
 	leftBottomHeight := max(4, contentHeight-leftTopHeight)
 
 	rightTopHeight := max(6, (contentHeight*2)/5)
 	rightBottomHeight := max(4, contentHeight-rightTopHeight)
 
+	// body heights = panel height − border (2) − title row (1)
 	branchBodyH := max(1, leftTopHeight-3)
 	stashBodyH := max(1, leftBottomHeight-3)
 	logBodyH := max(1, contentHeight-3)
 	statusBodyH := max(1, rightTopHeight-3)
 	diffBodyH := max(1, rightBottomHeight-3)
 
+	// inner widths = column width − border (2)
 	branchInnerW := max(1, leftWidth-2)
 	centerInnerW := max(1, centerWidth-2)
 	rightInnerW := max(1, rightWidth-2)
 
+	// ── resize widgets ────────────────────────────────────────────────────────
 	a.branches.SetSize(branchInnerW, branchBodyH)
 	a.stash.SetSize(branchInnerW, stashBodyH)
 	a.log.SetSize(centerInnerW, logBodyH)
@@ -707,18 +720,57 @@ func (a *App) View() string {
 		a.diff.SetContent(colorizeDiff(a.rawDiff, rightInnerW))
 	}
 
+	// ── panel counts for header badges ───────────────────────────────────────
+	branchCount := a.branches.Items()
+	stashCount := a.stash.Items()
+	logCount := a.log.Items()
+	statusCount := a.status.Items()
+
+	// ── render panels ─────────────────────────────────────────────────────────
+	branchContent := a.branches.View()
+	if len(branchCount) == 0 {
+		branchContent = emptyState("No branches found", "→ run: git init")
+	}
+	stashContent := a.stash.View()
+	if len(stashCount) == 0 {
+		stashContent = emptyState("No stashes", "→ a: stash current changes")
+	}
+	logContent := a.log.View()
+	if len(logCount) == 0 {
+		logContent = emptyState("No commits yet", "→ stage a file and press c")
+	}
+	statusContent := a.status.View()
+	if len(statusCount) == 0 {
+		statusContent = emptyState("Working tree clean", "✓ nothing to commit")
+	}
+
+	diffContent := a.diff.View()
+	if strings.TrimSpace(a.rawDiff) == "" && a.aiExplainText == "" {
+		diffContent = emptyState("No diff", "→ select a file in Status")
+	}
+
 	leftCol := lipgloss.JoinVertical(
 		lipgloss.Left,
-		a.renderPanel("Branches", a.branches.View(), leftWidth, leftTopHeight, a.activePanel == panelBranches),
-		a.renderPanel("Stash", a.stash.View(), leftWidth, leftBottomHeight, a.activePanel == panelStash),
+		a.renderPanel(
+			panelHeader("Branches", len(branchCount), a.activePanel == panelBranches),
+			branchContent, leftWidth, leftTopHeight, a.activePanel == panelBranches),
+		a.renderPanel(
+			panelHeader("Stash", len(stashCount), a.activePanel == panelStash),
+			stashContent, leftWidth, leftBottomHeight, a.activePanel == panelStash),
 	)
 
-	centerCol := a.renderPanel("Log", a.log.View(), centerWidth, contentHeight, a.activePanel == panelLog)
+	centerCol := a.renderPanel(
+		panelHeader("Log", len(logCount), a.activePanel == panelLog),
+		logContent, centerWidth, contentHeight, a.activePanel == panelLog)
 
 	rightCol := lipgloss.JoinVertical(
 		lipgloss.Left,
-		a.renderPanel("Status", a.status.View(), rightWidth, rightTopHeight, a.activePanel == panelStatus),
-		a.renderPanel("Diff", a.diff.View(), rightWidth, rightBottomHeight, a.activePanel == panelDiff),
+		a.renderPanel(
+			panelHeader("Status", len(statusCount), a.activePanel == panelStatus),
+			statusContent, rightWidth, rightTopHeight, a.activePanel == panelStatus),
+		a.renderPanel(
+			panelHeader("Diff", 0, a.activePanel == panelDiff),
+			diffContent, rightWidth, rightBottomHeight, a.activePanel == panelDiff),
 	)
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, centerCol, rightCol)
@@ -732,11 +784,13 @@ func (a *App) View() string {
 
 	ui := a.styles.root.Render(strings.Join(parts, "\n"))
 
+	// ── overlays drawn on top ─────────────────────────────────────────────────
 	if a.prompt.active {
 		return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, a.renderPrompt())
 	}
 	if a.prForm.active {
-		return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, a.prForm.view(min(a.width-4, 90), min(a.height-4, 32)))
+		return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center,
+			a.prForm.view(min(a.width-4, 90), min(a.height-4, 32)))
 	}
 	if a.aiView.active {
 		return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, a.renderAIOverlay())
@@ -745,14 +799,33 @@ func (a *App) View() string {
 	return ui
 }
 
-func (a *App) renderPanel(title, content string, width, height int, focused bool) string {
+// panelHeader builds a styled title line with an optional item-count badge.
+// count == 0 means "don't show count" (e.g. Diff panel).
+func panelHeader(name string, count int, focused bool) string {
+	nameStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	if focused {
+		nameStyle = lipgloss.NewStyle().Foreground(colorCyan).Bold(true)
+	}
+	title := nameStyle.Render(name)
+	if count > 0 {
+		countStyle := lipgloss.NewStyle().Foreground(colorMuted)
+		if focused {
+			countStyle = lipgloss.NewStyle().Foreground(colorCyan)
+		}
+		title += " " + countStyle.Render(fmt.Sprintf("(%d)", count))
+	}
+	return title
+}
+
+func (a *App) renderPanel(header, content string, width, height int, focused bool) string {
 	innerW := max(1, width-2)
 	innerH := max(1, height-2)
 
-	titleLine := truncateString(title, innerW)
+	header = truncateString(header, innerW)
 	bodyH := max(0, innerH-1)
 	body := renderPanelBody(content, bodyH)
-	panelContent := titleLine
+
+	panelContent := header
 	if bodyH > 0 {
 		panelContent += "\n" + body
 	}
@@ -765,31 +838,68 @@ func (a *App) renderPanel(title, content string, width, height int, focused bool
 }
 
 func (a *App) renderPrompt() string {
-	w := min(max(50, a.width*2/3), a.width-4)
+	w := min(max(52, a.width*2/3), a.width-4)
 	innerW := max(1, w-4)
 
 	a.prompt.input.Width = innerW - 2
-	content := strings.Join([]string{
-		lipgloss.NewStyle().Bold(true).Render(a.prompt.title),
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(colorFgBold)
+	hintStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	keyStyle := lipgloss.NewStyle().Foreground(colorCyan)
+
+	keys := keyStyle.Render("[Enter]") + hintStyle.Render(" confirm  ") +
+		keyStyle.Render("[Esc]") + hintStyle.Render(" cancel")
+
+	// contextual example line for certain modes
+	example := promptExample(a.prompt.mode)
+
+	rows := []string{
+		titleStyle.Render(a.prompt.title),
 		"",
-		a.prompt.hint,
-		a.prompt.input.View(),
-		"",
-		lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("[Enter] Submit  [Esc] Cancel"),
-	}, "\n")
+		hintStyle.Render(a.prompt.hint),
+	}
+	if example != "" {
+		rows = append(rows, hintStyle.Render(example))
+	}
+	rows = append(rows, "", a.prompt.input.View(), "", keys)
+
+	content := strings.Join(rows, "\n")
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("81")).
+		BorderForeground(colorCyan).
 		Width(w - 2).
 		Render(content)
 }
 
+// promptExample returns a contextual example string for a given prompt mode.
+func promptExample(mode promptMode) string {
+	switch mode {
+	case promptFeatureName:
+		return "e.g. login-redesign  →  feature/login-redesign"
+	case promptReleaseVersion:
+		return "e.g. 1.2.0  →  release/1.2.0"
+	case promptHotfixVersion:
+		return "e.g. 1.2.1  →  hotfix/1.2.1"
+	case promptCommit:
+		return "e.g. feat(auth): add JWT refresh"
+	case promptDeleteBranch:
+		return "Type the branch name exactly to confirm"
+	default:
+		return ""
+	}
+}
+
 func (a *App) renderAIOverlay() string {
 	w := min(max(70, a.width*3/4), a.width-4)
-	hint := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("[Esc] Close")
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(colorPurple)
+	hintStyle := lipgloss.NewStyle().Foreground(colorMuted)
+
+	hint := hintStyle.Render("[Esc]") + hintStyle.Render(" close")
+
 	content := strings.Join([]string{
-		lipgloss.NewStyle().Bold(true).Render(a.aiView.title),
+		titleStyle.Render("✦ " + a.aiView.title),
 		"",
 		a.aiView.content,
 		"",
@@ -798,36 +908,65 @@ func (a *App) renderAIOverlay() string {
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("81")).
+		BorderForeground(colorPurple).
 		Width(w - 2).
 		Render(content)
 }
 
 func (a *App) statusLine() string {
+	// ── left section: branch + sync ──────────────────────────────────────────
 	branch := a.currentBranch
 	if branch == "" {
 		branch = "(detached)"
 	}
-	mode := "line"
+
+	branchStyle := lipgloss.NewStyle().Foreground(colorFg).Bold(true)
+	left := branchStyle.Render(branch)
+
+	// ahead/behind sync arrows
+	if a.ahead > 0 {
+		left += " " + lipgloss.NewStyle().Foreground(colorGreen).Render(fmt.Sprintf("↑%d", a.ahead))
+	}
+	if a.behind > 0 {
+		left += " " + lipgloss.NewStyle().Foreground(colorOrange).Render(fmt.Sprintf("↓%d", a.behind))
+	}
+
+	// diff mode indicator
+	diffMode := lipgloss.NewStyle().Foreground(colorMuted).Render("line")
 	if a.wordDiff {
-		mode = "word"
+		diffMode = lipgloss.NewStyle().Foreground(colorBlue).Render("word")
 	}
+	left += "  " + lipgloss.NewStyle().Foreground(colorMuted).Render("diff:") + diffMode
 
-	left := fmt.Sprintf("%s  diff:%s  +%d -%d", branch, mode, a.ahead, a.behind)
+	// AI backend pill
 	if a.advisor != nil && a.advisor.Available() {
-		left += "  ✦ AI:" + a.advisor.Backend
-	}
-	if a.loading {
-		left = a.spinner.View() + " " + a.loadingLabel + "  " + left
+		left += "  " + a.styles.badge.ai.Render("✦ "+a.advisor.Backend)
 	}
 
+	// spinner + loading label
+	if a.loading {
+		left = a.spinner.View() + " " +
+			lipgloss.NewStyle().Foreground(colorPink).Bold(true).Render(a.loadingLabel) +
+			"  " + left
+	}
+
+	// ── right section: notification or hint bar ───────────────────────────────
 	right := a.notification
 	if right == "" {
-		right = "tab:focus  c:commit  ctrl+a:AI  E:explain  X:risk  B:health  g:fetch  ?:help"
+		muted := lipgloss.NewStyle().Foreground(colorMuted)
+		key := lipgloss.NewStyle().Foreground(colorCyan)
+		right = key.Render("?") + muted.Render(":help  ") +
+			key.Render("c") + muted.Render(":commit  ") +
+			key.Render("ctrl+a") + muted.Render(":AI  ") +
+			key.Render("E") + muted.Render(":explain  ") +
+			key.Render("X") + muted.Render(":risk  ") +
+			key.Render("B") + muted.Render(":health")
 	}
 
-	combined := left + " | " + right
+	sep := lipgloss.NewStyle().Foreground(colorDim).Render("  │  ")
+	combined := left + sep + right
 	combined = truncateString(combined, max(1, a.width-4))
+
 	if a.notifError {
 		return a.styles.statusError.Render(combined)
 	}
@@ -845,8 +984,39 @@ func renderPanelBody(content string, height int) string {
 	return strings.Join(lines, "\n")
 }
 
+// emptyState renders a friendly two-line placeholder for panels with no data.
+func emptyState(primary, hint string) string {
+	line1 := lipgloss.NewStyle().Foreground(colorMuted).Render(primary)
+	line2 := lipgloss.NewStyle().Foreground(colorSubtle).Render(hint)
+	return line1 + "\n" + line2
+}
+
 func helpLine() string {
-	return "Keys: tab/shift+tab focus, enter action, s stage, u unstage, c commit, ctrl+a AI commit, a stash, E explain, X merge risk, B branch health, w toggle word diff, p push, P pull --rebase, g fetch, D delete branch, n then f/r/h create branches, F/R/H finish, r refresh, q quit"
+	key := func(k string) string {
+		return lipgloss.NewStyle().Foreground(colorCyan).Bold(true).Render(k)
+	}
+	sep := lipgloss.NewStyle().Foreground(colorDim).Render("  ")
+	return strings.Join([]string{
+		key("tab/shift+tab") + " focus",
+		key("enter") + " action",
+		key("s") + " stage",
+		key("u") + " unstage",
+		key("c") + " commit",
+		key("ctrl+a") + " AI commit",
+		key("a") + " stash",
+		key("E") + " explain",
+		key("X") + " merge risk",
+		key("B") + " branch health",
+		key("w") + " word diff",
+		key("p") + " push",
+		key("P") + " pull --rebase",
+		key("g") + " fetch",
+		key("D") + " delete branch",
+		key("n") + " then " + key("f/r/h") + " new branch",
+		key("F/R/H") + " finish",
+		key("r") + " refresh",
+		key("q") + " quit",
+	}, sep)
 }
 
 func (a *App) aiCommitCmd() tea.Cmd {
