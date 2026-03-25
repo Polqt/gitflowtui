@@ -7,9 +7,9 @@ VERSION  := $(shell git describe --tags --always --dirty 2>/dev/null || echo "de
 COMMIT   := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE     := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS  := -s -w \
-            -X main.version=$(VERSION) \
-            -X main.commit=$(COMMIT) \
-            -X main.date=$(DATE)
+            -X main.buildVersion=$(VERSION) \
+            -X main.buildCommit=$(COMMIT) \
+            -X main.buildDate=$(DATE)
 
 .PHONY: all build install test lint lint-fix clean release snapshot
 

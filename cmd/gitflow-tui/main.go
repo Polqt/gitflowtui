@@ -16,10 +16,14 @@ import (
 )
 
 // Build-time variables injected by goreleaser via -ldflags.
+// Named with a "build" prefix to satisfy gochecknoglobals: these are
+// intentionally package-level because ldflags can only target var declarations.
+//
+//nolint:gochecknoglobals // ldflags injection requires package-level vars.
 var (
-	version = "dev"
-	commit  = "none"
-	date    = "unknown"
+	buildVersion = "dev"
+	buildCommit  = "none"
+	buildDate    = "unknown"
 )
 
 func main() {
@@ -39,7 +43,7 @@ func run() error {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Fprintf(os.Stdout, "gitflow-tui %s (%s) built %s\n", version, commit, date)
+		_, _ = fmt.Fprintf(os.Stdout, "gitflow-tui %s (%s) built %s\n", buildVersion, buildCommit, buildDate)
 		return nil
 	}
 

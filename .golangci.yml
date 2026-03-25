@@ -8,7 +8,7 @@ run:
   tests: true
   allow-parallel-runners: true
   allow-serial-runners: true
-  go: "1.25"
+  go: "1.24"
 
 output:
   formats:

@@ -411,7 +411,7 @@ func (a *App) handleKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 			a.setNotification("Cannot delete the current branch", true)
 			return false, nil
 		}
-		a.openPrompt(promptDeleteBranch, "Delete Branch", fmt.Sprintf("Type branch name to confirm deletion: %s", item.branch.Name), item.branch.Name)
+		a.openPrompt(promptDeleteBranch, "Delete Branch", "Type branch name to confirm deletion: "+item.branch.Name, item.branch.Name)
 		return false, nil
 
 	case "F":
