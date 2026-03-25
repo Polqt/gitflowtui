@@ -24,6 +24,13 @@ type Advisor struct {
 // Otherwise it auto-detects a local Ollama instance with a fast reachability
 // check before falling back to a disabled advisor.
 func New(apiKey string) *Advisor {
+	return NewWithOptions(apiKey, "")
+}
+
+// NewWithOptions creates an Advisor with explicit Ollama model override.
+// Pass an empty ollamaModel to use the GITFLOW_TUI_OLLAMA_MODEL env var or the
+// default ("llama3").
+func NewWithOptions(apiKey, ollamaModel string) *Advisor {
 	if apiKey == "" {
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
 	}
@@ -42,7 +49,7 @@ func New(apiKey string) *Advisor {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 	if ollamaReachable(ctx) {
-		advisor.client = newOllamaClient("")
+		advisor.client = newOllamaClient(ollamaModel)
 		advisor.Backend = "ollama"
 	}
 

@@ -2,11 +2,13 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/Polqt/gitflowtui/ai"
 	"github.com/Polqt/gitflowtui/git"
 	"github.com/Polqt/gitflowtui/gitflow"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -31,6 +33,37 @@ type prArtifactMsg struct {
 	err  error
 }
 
+type aiCommitMsg struct {
+	suggestion *ai.CommitSuggestion
+	err        error
+}
+
+type aiRiskMsg struct {
+	risk *ai.MergeRisk
+	err  error
+}
+
+type aiExplainStartMsg struct {
+	stream ai.StreamResult
+	title  string
+	cancel context.CancelFunc
+	err    error
+}
+
+type aiExplainTokenMsg struct {
+	token string
+}
+
+type aiExplainDoneMsg struct {
+	err error
+}
+
+type aiBranchHealthMsg struct {
+	report *ai.BranchHealthReport
+	err    error
+}
+
+//nolint:gocognit,gocyclo,cyclop,funlen,maintidx // Central Bubble Tea event router; split further would obscure message flow.
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
@@ -48,6 +81,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case refreshMsg:
+		a.stopAIExplain()
 		a.loading = false
 		if msg.err != nil {
 			a.setNotification(msg.err.Error(), true)
@@ -71,10 +105,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case diffMsg:
+		a.stopAIExplain()
 		if msg.err != nil {
 			a.setNotification(msg.err.Error(), true)
 			return a, nil
 		}
+		a.aiExplainText = ""
 		a.diffFromStash = msg.fromStash
 		a.rawDiff = msg.text
 		a.diff.SetContent(colorizeDiff(msg.text, max(20, a.diff.Width)))
@@ -111,7 +147,101 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.setNotification("PR template copied to clipboard and saved: "+msg.path, false)
 		return a, nil
 
+	case aiCommitMsg:
+		a.loading = false
+		if msg.err != nil {
+			a.setNotification(msg.err.Error(), true)
+			return a, nil
+		}
+		if msg.suggestion == nil {
+			a.setNotification("AI commit suggestion was empty", true)
+			return a, nil
+		}
+		a.prompt.input.SetValue(msg.suggestion.Message)
+		notice := "AI commit suggestion applied"
+		if msg.suggestion.MixedConcerns {
+			notice += "  [mixed: consider splitting]"
+		}
+		if msg.suggestion.Breaking {
+			notice += "  [BREAKING CHANGE]"
+		}
+		a.setNotification(notice, false)
+		return a, nil
+
+	case aiRiskMsg:
+		a.loading = false
+		if msg.err != nil {
+			a.setNotification(msg.err.Error(), true)
+			return a, nil
+		}
+		if msg.risk == nil {
+			a.setNotification("AI merge risk returned no data", true)
+			return a, nil
+		}
+		a.aiView = aiOverlay{
+			active:  true,
+			title:   "AI Merge Risk",
+			content: renderMergeRisk(msg.risk),
+		}
+		a.setNotification(msg.risk.Summary, false)
+		return a, nil
+
+	case aiBranchHealthMsg:
+		a.loading = false
+		if msg.err != nil {
+			a.setNotification(msg.err.Error(), true)
+			return a, nil
+		}
+		if msg.report == nil {
+			a.setNotification("AI branch health returned no data", true)
+			return a, nil
+		}
+		a.aiView = aiOverlay{
+			active:  true,
+			title:   "AI Branch Health",
+			content: renderBranchHealth(msg.report),
+		}
+		a.setNotification(msg.report.Summary, false)
+		return a, nil
+
+	case aiExplainStartMsg:
+		if msg.err != nil {
+			a.setNotification(msg.err.Error(), true)
+			return a, nil
+		}
+		a.stopAIExplain()
+		a.aiExplainTokens = msg.stream.Tokens
+		a.aiExplainErrs = msg.stream.Err
+		a.aiExplainStop = msg.cancel
+		a.aiExplainText = msg.title + "\n\n"
+		a.diff.SetContent(a.aiExplainText)
+		a.diff.GotoTop()
+		a.setNotification("AI explanation streaming...", false)
+		return a, waitAIExplainTokenCmd(ai.StreamResult{Tokens: a.aiExplainTokens, Err: a.aiExplainErrs})
+
+	case aiExplainTokenMsg:
+		if a.aiExplainTokens == nil || a.aiExplainErrs == nil {
+			return a, nil
+		}
+		a.aiExplainText += msg.token
+		a.diff.SetContent(a.aiExplainText)
+		a.diff.GotoBottom()
+		return a, waitAIExplainTokenCmd(ai.StreamResult{Tokens: a.aiExplainTokens, Err: a.aiExplainErrs})
+
+	case aiExplainDoneMsg:
+		if msg.err != nil && !errors.Is(msg.err, context.Canceled) {
+			a.setNotification(msg.err.Error(), true)
+		} else if a.aiExplainText != "" {
+			a.setNotification("AI explanation complete", false)
+		}
+		a.stopAIExplain()
+		return a, nil
+
 	case tea.KeyMsg:
+		if a.aiView.active && msg.String() == "esc" {
+			a.aiView.active = false
+			return a, nil
+		}
 		if a.prForm.active {
 			cmd, submitted, _, template := a.prForm.update(msg)
 			if cmd != nil {
@@ -129,6 +259,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if a.prompt.active {
+			if msg.String() == "ctrl+a" && a.prompt.mode == promptCommit {
+				quit, cmd := a.handleKey(msg)
+				if quit || cmd != nil {
+					return a, cmd
+				}
+			}
 			switch msg.String() {
 			case "esc":
 				a.prompt.active = false
@@ -158,8 +294,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
+//nolint:gocognit,gocyclo,cyclop,funlen,maintidx // Keyboard routing stays centralized so keybindings remain easy to audit.
 func (a *App) handleKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 	key := msg.String()
+
+	if a.aiView.active && key == "esc" {
+		a.aiView.active = false
+		return false, nil
+	}
 
 	if a.newBranchArmed {
 		a.newBranchArmed = false
@@ -213,6 +355,18 @@ func (a *App) handleKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 		a.openPrompt(promptStash, "Stash", "Optional stash message", "wip")
 		return false, nil
 
+	case "ctrl+a":
+		if a.prompt.mode != promptCommit {
+			return false, nil
+		}
+		if a.advisor == nil || !a.advisor.Available() {
+			a.setNotification("AI commit: install Ollama free at ollama.ai", true)
+			return false, nil
+		}
+		a.loading = true
+		a.loadingLabel = "AI commit"
+		return false, a.aiCommitCmd()
+
 	case "w":
 		a.wordDiff = !a.wordDiff
 		mode := "line"
@@ -239,6 +393,27 @@ func (a *App) handleKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 			return a.repo.PullRebase(ctx)
 		})
 
+	case "g":
+		a.loading = true
+		return false, a.gitOpCmd("fetch", true, func(ctx context.Context) error {
+			return a.repo.Fetch(ctx)
+		})
+
+	case "D":
+		if a.activePanel != panelBranches {
+			return false, nil
+		}
+		item, ok := a.selectedBranchItem()
+		if !ok {
+			return false, nil
+		}
+		if item.branch.IsHead {
+			a.setNotification("Cannot delete the current branch", true)
+			return false, nil
+		}
+		a.openPrompt(promptDeleteBranch, "Delete Branch", fmt.Sprintf("Type branch name to confirm deletion: %s", item.branch.Name), item.branch.Name)
+		return false, nil
+
 	case "F":
 		a.pendingFinish = finishFeature
 		a.prForm.open(finishFeature, a.currentBranch, a.cfg.DevelopBranch)
@@ -253,6 +428,39 @@ func (a *App) handleKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 		a.pendingFinish = finishHotfix
 		a.prForm.open(finishHotfix, a.currentBranch, a.cfg.MainBranch)
 		return false, nil
+
+	case "X":
+		if a.advisor == nil || !a.advisor.Available() {
+			a.setNotification("AI unavailable. Install Ollama free at ollama.ai", true)
+			return false, nil
+		}
+		target, ok := a.mergeRiskTarget()
+		if !ok {
+			a.setNotification("X works on feature/release/hotfix branches", true)
+			return false, nil
+		}
+		a.loading = true
+		a.loadingLabel = "AI merge risk"
+		return false, a.aiMergeRiskCmd(target)
+
+	case "B":
+		if a.advisor == nil || !a.advisor.Available() {
+			a.setNotification("AI unavailable. Install Ollama free at ollama.ai", true)
+			return false, nil
+		}
+		a.loading = true
+		a.loadingLabel = "AI branch health"
+		return false, a.aiBranchHealthCmd()
+
+	case "E":
+		if a.activePanel != panelDiff && a.activePanel != panelStash {
+			return false, nil
+		}
+		if a.advisor == nil || !a.advisor.Available() {
+			a.setNotification("E: install Ollama free at ollama.ai", true)
+			return false, nil
+		}
+		return false, a.aiExplainCmd()
 
 	case "enter":
 		switch a.activePanel {
@@ -350,6 +558,20 @@ func (a *App) submitPrompt() tea.Cmd {
 		return a.gitOpCmd("new hotfix", true, func(ctx context.Context) error {
 			_, err := a.workflow.StartHotfix(ctx, value)
 			return err
+		})
+	case promptDeleteBranch:
+		item, ok := a.selectedBranchItem()
+		if !ok {
+			return nil
+		}
+		if value != item.branch.Name {
+			a.setNotification("Delete cancelled: branch name did not match", true)
+			return nil
+		}
+		a.loading = true
+		name := item.branch.Name
+		return a.gitOpCmd("delete "+name, true, func(ctx context.Context) error {
+			return a.repo.DeleteBranch(ctx, name, false)
 		})
 	default:
 		return nil
@@ -479,7 +701,9 @@ func (a *App) View() string {
 	a.status.SetSize(rightInnerW, statusBodyH)
 	a.diff.Width = rightInnerW
 	a.diff.Height = diffBodyH
-	if a.rawDiff != "" {
+	if a.aiExplainText != "" {
+		a.diff.SetContent(a.aiExplainText)
+	} else if a.rawDiff != "" {
 		a.diff.SetContent(colorizeDiff(a.rawDiff, rightInnerW))
 	}
 
@@ -513,6 +737,9 @@ func (a *App) View() string {
 	}
 	if a.prForm.active {
 		return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, a.prForm.view(min(a.width-4, 90), min(a.height-4, 32)))
+	}
+	if a.aiView.active {
+		return lipgloss.Place(a.width, a.height, lipgloss.Center, lipgloss.Center, a.renderAIOverlay())
 	}
 
 	return ui
@@ -558,6 +785,24 @@ func (a *App) renderPrompt() string {
 		Render(content)
 }
 
+func (a *App) renderAIOverlay() string {
+	w := min(max(70, a.width*3/4), a.width-4)
+	hint := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("[Esc] Close")
+	content := strings.Join([]string{
+		lipgloss.NewStyle().Bold(true).Render(a.aiView.title),
+		"",
+		a.aiView.content,
+		"",
+		hint,
+	}, "\n")
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("81")).
+		Width(w - 2).
+		Render(content)
+}
+
 func (a *App) statusLine() string {
 	branch := a.currentBranch
 	if branch == "" {
@@ -569,13 +814,16 @@ func (a *App) statusLine() string {
 	}
 
 	left := fmt.Sprintf("%s  diff:%s  +%d -%d", branch, mode, a.ahead, a.behind)
+	if a.advisor != nil && a.advisor.Available() {
+		left += "  ✦ AI:" + a.advisor.Backend
+	}
 	if a.loading {
 		left = a.spinner.View() + " " + a.loadingLabel + "  " + left
 	}
 
 	right := a.notification
 	if right == "" {
-		right = "tab:focus  n+f/r/h:new branch  F/R/H:finish  c:commit  a:stash  w:word diff"
+		right = "tab:focus  c:commit  ctrl+a:AI  E:explain  X:risk  B:health  g:fetch  ?:help"
 	}
 
 	combined := left + " | " + right
@@ -598,5 +846,185 @@ func renderPanelBody(content string, height int) string {
 }
 
 func helpLine() string {
-	return "Keys: tab/shift+tab focus, enter action, s stage, u unstage, c commit, a stash, w toggle word diff, p push, P pull --rebase, n then f/r/h create branches, F/R/H finish, r refresh, q quit"
+	return "Keys: tab/shift+tab focus, enter action, s stage, u unstage, c commit, ctrl+a AI commit, a stash, E explain, X merge risk, B branch health, w toggle word diff, p push, P pull --rebase, g fetch, D delete branch, n then f/r/h create branches, F/R/H finish, r refresh, q quit"
+}
+
+func (a *App) aiCommitCmd() tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		diff, err := a.repo.Diff(ctx, "--cached")
+		if err != nil {
+			return aiCommitMsg{err: err}
+		}
+		suggestion, err := a.advisor.SuggestCommit(ctx, diff)
+		return aiCommitMsg{suggestion: suggestion, err: err}
+	}
+}
+
+func (a *App) aiMergeRiskCmd(targetBranch string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		risk, err := a.advisor.PredictMergeRisk(ctx, a.repo, a.currentBranch, targetBranch)
+		return aiRiskMsg{risk: risk, err: err}
+	}
+}
+
+func (a *App) aiExplainCmd() tea.Cmd {
+	currentPanel := a.activePanel
+	currentDiff := a.rawDiff
+	wordDiff := a.wordDiff
+
+	var stashRef string
+	if currentPanel == panelStash {
+		if item, ok := a.selectedStashItem(); ok {
+			stashRef = item.entry.Ref
+		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+		switch currentPanel {
+		case panelDiff:
+			stream, err := a.advisor.ExplainDiff(ctx, currentDiff)
+			if err != nil {
+				cancel()
+				return aiExplainStartMsg{err: err}
+			}
+			return aiExplainStartMsg{
+				stream: stream,
+				title:  "AI Diff Explanation",
+				cancel: cancel,
+			}
+		case panelStash:
+			stashDiff := currentDiff
+			if strings.TrimSpace(stashDiff) == "" && stashRef != "" {
+				var err error
+				if wordDiff {
+					stashDiff, err = a.repo.StashDiffWord(ctx, stashRef)
+				} else {
+					stashDiff, err = a.repo.StashDiff(ctx, stashRef)
+				}
+				if err != nil {
+					cancel()
+					return aiExplainStartMsg{err: err}
+				}
+			}
+			stream, err := a.advisor.ExplainStash(ctx, stashDiff)
+			if err != nil {
+				cancel()
+				return aiExplainStartMsg{err: err}
+			}
+			return aiExplainStartMsg{
+				stream: stream,
+				title:  "AI Stash Explanation",
+				cancel: cancel,
+			}
+		default:
+			cancel()
+			return aiExplainStartMsg{err: errors.New("AI explanation is only available on diff or stash panels")}
+		}
+	}
+}
+
+func waitAIExplainTokenCmd(stream ai.StreamResult) tea.Cmd {
+	return func() tea.Msg {
+		token, ok := <-stream.Tokens
+		if ok {
+			return aiExplainTokenMsg{token: token}
+		}
+
+		var err error
+		if streamErr, ok := <-stream.Err; ok {
+			err = streamErr
+		}
+		return aiExplainDoneMsg{err: err}
+	}
+}
+
+func (a *App) stopAIExplain() {
+	if a.aiExplainStop != nil {
+		a.aiExplainStop()
+		a.aiExplainStop = nil
+	}
+	a.aiExplainTokens = nil
+	a.aiExplainErrs = nil
+}
+
+func (a *App) aiBranchHealthCmd() tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+
+		branches, err := a.repo.Branches(ctx)
+		if err != nil {
+			return aiBranchHealthMsg{err: err}
+		}
+		report, err := a.advisor.AnalyzeBranchHealth(ctx, branches, a.currentBranch)
+		return aiBranchHealthMsg{report: report, err: err}
+	}
+}
+
+func (a *App) mergeRiskTarget() (string, bool) {
+	switch {
+	case strings.HasPrefix(a.currentBranch, "feature/"), strings.HasPrefix(a.currentBranch, "feat/"):
+		return a.cfg.DevelopBranch, true
+	case strings.HasPrefix(a.currentBranch, "release/"), strings.HasPrefix(a.currentBranch, "hotfix/"):
+		return a.cfg.MainBranch, true
+	default:
+		return "", false
+	}
+}
+
+func renderBranchHealth(report *ai.BranchHealthReport) string {
+	var lines []string
+	lines = append(lines, report.Summary)
+
+	if len(report.StaleBranches) > 0 {
+		lines = append(lines, "", "Stale branches:")
+		for _, b := range report.StaleBranches {
+			lines = append(lines, "  - "+b)
+		}
+	}
+	if len(report.RiskyBranches) > 0 {
+		lines = append(lines, "", "Risky branches:")
+		for _, b := range report.RiskyBranches {
+			lines = append(lines, "  - "+b)
+		}
+	}
+	if len(report.Recommendations) > 0 {
+		lines = append(lines, "", "Recommendations:")
+		for _, rec := range report.Recommendations {
+			priority := rec.PriorityLabel()
+			lines = append(lines, fmt.Sprintf("  [%s] %s: %s — %s", priority, rec.Branch, rec.Action, rec.Reason))
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func renderMergeRisk(risk *ai.MergeRisk) string {
+	var lines []string
+	lines = append(lines, risk.Summary)
+	if strings.TrimSpace(risk.Recommendation) != "" {
+		lines = append(lines, "", "Recommendation:", risk.Recommendation)
+	}
+	if len(risk.ConflictFiles) == 0 {
+		return strings.Join(lines, "\n")
+	}
+
+	lines = append(lines, "", "Conflict files:")
+	for _, file := range risk.ConflictFiles {
+		line := "- " + file.Path
+		if file.Explanation != "" {
+			line += ": " + file.Explanation
+		} else if file.HunkCount > 0 {
+			line += fmt.Sprintf(": %d predicted conflict hunk(s)", file.HunkCount)
+		}
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
 }

@@ -120,7 +120,6 @@ func stashListItems(entries []git.StashEntry) []list.Item {
 	return items
 }
 
-
 func (a *App) selectedBranchItem() (branchItem, bool) {
 	item := a.branches.SelectedItem()
 	if item == nil {

@@ -1,6 +1,6 @@
 module github.com/Polqt/gitflowtui
 
-go 1.25.0
+go 1.24.2
 
 require (
 	github.com/atotto/clipboard v0.1.4

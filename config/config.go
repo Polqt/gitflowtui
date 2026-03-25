@@ -11,6 +11,7 @@ type Config struct {
 	WSAddr        string
 	WSPath        string
 	AIKey         string
+	OllamaModel   string
 }
 
 func Default() Config {
@@ -37,7 +38,7 @@ func Load() Config {
 	if v := os.Getenv("GITFLOW_TUI_REMOTE"); v != "" {
 		cfg.RemoteName = v
 	}
-	
+
 	if os.Getenv("GITFLOW_TUI_WS_DISABLE") == "1" {
 		cfg.WSAddr = ""
 	}
@@ -49,6 +50,7 @@ func Load() Config {
 	}
 
 	cfg.AIKey = os.Getenv("ANTHROPIC_API_KEY")
+	cfg.OllamaModel = os.Getenv("GITFLOW_TUI_OLLAMA_MODEL")
 
 	return cfg
 }

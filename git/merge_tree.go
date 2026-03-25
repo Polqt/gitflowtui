@@ -72,7 +72,11 @@ func (r *Repo) DryRunMerge(ctx context.Context, source, target string) (*DryRunR
 // dryRunMergeFallback identifies conflict candidates by finding files that
 // both branches changed since the merge base. Less precise than merge-tree
 // (no hunk-level detail) but works on all git versions ≥ 1.7.
-func (r *Repo) dryRunMergeFallback(ctx context.Context, base, source, target string, ahead, filesChanged int) (*DryRunResult, error) {
+func (r *Repo) dryRunMergeFallback(
+	ctx context.Context,
+	base, source, target string,
+	ahead, filesChanged int,
+) (*DryRunResult, error) {
 	ourFiles, err := r.changedFileSet(ctx, base, source)
 	if err != nil {
 		return nil, fmt.Errorf("DryRunMerge fallback (ours): %w", err)
@@ -143,13 +147,14 @@ func (r *Repo) DiffRange(ctx context.Context, base, head string) (string, error)
 //	filename: path/to/file
 //
 // <merged content with optional conflict markers>
-// (empty line separates records)
+// (empty line separates records).
 func parseMergeTreeOutput(out string) []DryRunConflictFile {
 	if out == "" {
 		return nil
 	}
 
-	const maxContentPerFile = 4096 // 4 KB per file, to avoid overwhelming the API with huge diffs. merge-tree output is already truncated at 64 KB, so this covers most cases.
+	// Limit per-file conflict payloads so AI prompts stay manageable.
+	const maxContentPerFile = 4096
 
 	var (
 		results     []DryRunConflictFile
@@ -245,7 +250,7 @@ func isRecordHeader(line string) bool {
 	return false
 }
 
-// Helpers
+// parseIntOrZero converts a string to int and falls back to zero.
 func parseIntOrZero(s string) int {
 	n, err := strconv.Atoi(strings.TrimSpace(s))
 	if err != nil {

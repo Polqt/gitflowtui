@@ -1,6 +1,10 @@
 package tui
 
-import "time"
+import (
+	"time"
+
+	"github.com/Polqt/gitflowtui/ai"
+)
 
 // AppOption configures optional App behavior.
 type AppOption func(*App)
@@ -75,6 +79,13 @@ type RealtimeCommit struct {
 func WithEventSink(sink EventSink) AppOption {
 	return func(a *App) {
 		a.eventSink = sink
+	}
+}
+
+// WithAdvisor injects an AI advisor into the app.
+func WithAdvisor(advisor *ai.Advisor) AppOption {
+	return func(app *App) {
+		app.advisor = advisor
 	}
 }
 

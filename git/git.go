@@ -21,7 +21,10 @@ type Repository interface {
 	Log(ctx context.Context, limit int) ([]Commit, error)
 	LogRef(ctx context.Context, ref string, limit int) ([]Commit, error)
 	Diff(ctx context.Context, ref string) (string, error)
+	DiffWord(ctx context.Context, ref string) (string, error)
 	DiffFile(ctx context.Context, path string, staged bool) (string, error)
+	DiffFileWord(ctx context.Context, path string, staged bool) (string, error)
+	DiffRange(ctx context.Context, base, head string) (string, error)
 	Stage(ctx context.Context, path string) error
 	Unstage(ctx context.Context, path string) error
 	Commit(ctx context.Context, msg string, amend bool) error
@@ -29,6 +32,8 @@ type Repository interface {
 	StashPop(ctx context.Context, index int) error
 	ListStashes(ctx context.Context) ([]StashEntry, error)
 	StashDiff(ctx context.Context, ref string) (string, error)
+	StashDiffWord(ctx context.Context, ref string) (string, error)
+	DryRunMerge(ctx context.Context, source, target string) (*DryRunResult, error)
 	Checkout(ctx context.Context, branch string) error
 	CreateBranch(ctx context.Context, name, base string) error
 	DeleteBranch(ctx context.Context, name string, force bool) error

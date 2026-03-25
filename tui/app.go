@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Polqt/gitflowtui/ai"
 	"github.com/Polqt/gitflowtui/config"
 	"github.com/Polqt/gitflowtui/git"
 	"github.com/Polqt/gitflowtui/gitflow"
@@ -36,6 +37,7 @@ const (
 	promptFeatureName
 	promptReleaseVersion
 	promptHotfixVersion
+	promptDeleteBranch
 )
 
 type finishAction int
@@ -53,6 +55,7 @@ type App struct {
 	workflow  *gitflow.Workflow
 	cfg       config.Config
 	eventSink EventSink
+	advisor   *ai.Advisor
 
 	width  int
 	height int
@@ -67,6 +70,7 @@ type App struct {
 
 	prompt promptOverlay
 	prForm prTemplateForm
+	aiView aiOverlay
 
 	spinner spinner.Model
 	styles  uiStyles
@@ -84,8 +88,12 @@ type App struct {
 	wordDiff      bool
 	diffFromStash bool
 
-	newBranchArmed bool
-	pendingFinish  finishAction
+	newBranchArmed  bool
+	pendingFinish   finishAction
+	aiExplainText   string
+	aiExplainErrs   <-chan error
+	aiExplainStop   context.CancelFunc
+	aiExplainTokens <-chan string
 }
 
 type promptOverlay struct {
@@ -94,6 +102,12 @@ type promptOverlay struct {
 	title  string
 	hint   string
 	input  textinput.Model
+}
+
+type aiOverlay struct {
+	active  bool
+	title   string
+	content string
 }
 
 type repoSnapshot struct {
@@ -161,6 +175,9 @@ func NewApp(repo *git.Repo, cfg config.Config, opts ...AppOption) *App {
 
 	for _, opt := range opts {
 		opt(app)
+	}
+	if app.advisor == nil {
+		app.advisor = ai.New("")
 	}
 
 	return app
