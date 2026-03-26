@@ -49,6 +49,17 @@ const (
 	finishHotfix
 )
 
+// ── activity log ──────────────────────────────────────────────────────────────
+
+const activityLogMax = 50
+
+type activityEntry struct {
+	timestamp time.Time
+	icon      string
+	text      string
+	isError   bool
+}
+
 // App is the Bubble Tea root model.
 type App struct {
 	repo      *git.Repo
@@ -94,6 +105,9 @@ type App struct {
 	aiExplainErrs   <-chan error
 	aiExplainStop   context.CancelFunc
 	aiExplainTokens <-chan string
+
+	// Activity log — ring buffer of recent operations.
+	activityLog []activityEntry
 }
 
 type promptOverlay struct {
@@ -150,7 +164,7 @@ func NewApp(repo *git.Repo, cfg config.Config, opts ...AppOption) *App {
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	sp.Style = lipgloss.NewStyle().Foreground(colorMagenta)
 
 	p := textinput.New()
 	p.Prompt = "> "
@@ -171,6 +185,7 @@ func NewApp(repo *git.Repo, cfg config.Config, opts ...AppOption) *App {
 		spinner:      sp,
 		styles:       defaultStyles(),
 		loadingLabel: "Refreshing",
+		activityLog:  make([]activityEntry, 0, activityLogMax),
 	}
 
 	for _, opt := range opts {
@@ -188,10 +203,10 @@ func newPanelList() list.Model {
 	delegate.ShowDescription = false
 	delegate.SetSpacing(0)
 	delegate.Styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("250")).
+		Foreground(colorFg).
 		PaddingLeft(1)
 	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("81")).
+		Foreground(colorCyan).
 		Bold(true).
 		PaddingLeft(0)
 
@@ -352,4 +367,52 @@ func (a *App) opMessage(msg opMsg) string {
 		return fmt.Sprintf("%s failed: %v", msg.label, msg.err)
 	}
 	return msg.label + " done"
+}
+
+// ── activity log helpers ──────────────────────────────────────────────────────
+
+func (a *App) addActivity(icon, text string, isError bool) {
+	entry := activityEntry{
+		timestamp: time.Now(),
+		icon:      icon,
+		text:      text,
+		isError:   isError,
+	}
+	if len(a.activityLog) >= activityLogMax {
+		a.activityLog = a.activityLog[1:]
+	}
+	a.activityLog = append(a.activityLog, entry)
+}
+
+// logOpResult logs a completed operation to the activity log.
+func (a *App) logOpResult(msg opMsg) {
+	if msg.err != nil {
+		a.addActivity("✗", msg.label+" failed", true)
+		return
+	}
+
+	icon := "■"
+	switch {
+	case strings.HasPrefix(msg.label, "push"):
+		icon = "↑"
+	case strings.HasPrefix(msg.label, "pull"):
+		icon = "↓"
+	case strings.HasPrefix(msg.label, "fetch"):
+		icon = "⟳"
+	case strings.HasPrefix(msg.label, "checkout"):
+		icon = "⎇"
+	case strings.HasPrefix(msg.label, "commit"):
+		icon = "●"
+	case strings.HasPrefix(msg.label, "stage"):
+		icon = "+"
+	case strings.HasPrefix(msg.label, "unstage"):
+		icon = "-"
+	case strings.HasPrefix(msg.label, "stash"):
+		icon = "⊡"
+	case strings.HasPrefix(msg.label, "delete"):
+		icon = "✕"
+	case strings.HasPrefix(msg.label, "new"):
+		icon = "◆"
+	}
+	a.addActivity(icon, msg.label, false)
 }

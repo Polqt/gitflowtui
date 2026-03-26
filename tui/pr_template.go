@@ -156,9 +156,9 @@ func (f *prTemplateForm) view(width, height int) string {
 	f.body.SetWidth(inner - 2)
 	f.body.SetHeight(max(6, height-14))
 
-	header := lipgloss.NewStyle().Bold(true).Render("New Pull Request")
-	meta := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render(fmt.Sprintf("%s -> %s", f.source, f.target))
-	footer := lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("[Tab] Next  [Ctrl+S] Submit  [Esc] Cancel")
+	header := lipgloss.NewStyle().Bold(true).Foreground(colorCyan).Render("New Pull Request")
+	meta := lipgloss.NewStyle().Foreground(colorMuted).Render(fmt.Sprintf("%s -> %s", f.source, f.target))
+	footer := lipgloss.NewStyle().Foreground(colorMuted).Render("[Tab] Next  [Ctrl+S] Submit  [Esc] Cancel")
 
 	content := strings.Join([]string{
 		header,
@@ -176,7 +176,8 @@ func (f *prTemplateForm) view(width, height int) string {
 
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("205")).
+		BorderForeground(colorCyan).
+		Background(colorBgModal).
 		Width(width - 2).
 		Render(content)
 

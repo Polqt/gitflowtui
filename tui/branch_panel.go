@@ -67,19 +67,35 @@ func (a *App) applySnapshot(s repoSnapshot) {
 func branchKindTag(kind gitflow.BranchKind, st uiStyles) string {
 	switch kind {
 	case gitflow.KindMain:
-		return st.badge.main.Render("MAIN")
+		return st.badge.main.Render("[M]")
 	case gitflow.KindDevelop:
-		return st.badge.develop.Render("DEV")
+		return st.badge.develop.Render("[D]")
 	case gitflow.KindFeature:
-		return st.badge.feature.Render("FEAT")
+		return st.badge.feature.Render("[F]")
 	case gitflow.KindRelease:
-		return st.badge.release.Render("REL")
+		return st.badge.release.Render("[R]")
 	case gitflow.KindHotfix:
-		return st.badge.hotfix.Render("HOT")
+		return st.badge.hotfix.Render("[H]")
 	case gitflow.KindUnknown:
-		return st.badge.unknown.Render("·")
+		return st.badge.unknown.Render("[·]")
 	}
-	return st.badge.unknown.Render("·")
+	return st.badge.unknown.Render("[·]")
+}
+
+// branchStatusBadge returns a pill-style badge based on the branch state.
+func branchStatusBadge(b git.Branch, kind gitflow.BranchKind, st uiStyles) string {
+	switch {
+	case kind == gitflow.KindHotfix:
+		return st.badge.urgent.Render("URGENT")
+	case b.IsHead && b.Ahead > 0:
+		return st.badge.readyPR.Render("STAGED")
+	case b.IsHead:
+		return st.badge.inProg.Render("IN_PROGRESS")
+	case b.Ahead > 0:
+		return st.badge.readyPR.Render("READY_FOR_PR")
+	default:
+		return ""
+	}
 }
 
 func branchListItems(branches []git.Branch, cfg gitflow.Config, st uiStyles) []list.Item {
@@ -87,18 +103,15 @@ func branchListItems(branches []git.Branch, cfg gitflow.Config, st uiStyles) []l
 	for _, b := range branches {
 		kind := gitflow.DetectKind(b.Name, cfg)
 
-		// HEAD marker
-		headMark := "  "
-		if b.IsHead {
-			headMark = lipgloss.NewStyle().Foreground(colorGold).Bold(true).Render("▸ ")
-		}
-
-		// kind tag
+		// kind tag [F] [R] [H] [M] [D]
 		tag := branchKindTag(kind, st)
 
 		// branch name — coloured by kind
 		nameStyle := kindNameStyle(kind, b.IsHead)
 		name := nameStyle.Render(b.Name)
+
+		// status badge
+		badge := branchStatusBadge(b, kind, st)
 
 		// sync indicators
 		sync := ""
@@ -111,13 +124,15 @@ func branchListItems(branches []git.Branch, cfg gitflow.Config, st uiStyles) []l
 				parts = append(parts, st.badge.behind.Render(fmt.Sprintf("↓%d", b.Behind)))
 			}
 			if len(parts) > 0 {
-				sync = "  " + strings.Join(parts, " ")
-			} else {
-				sync = "  " + lipgloss.NewStyle().Foreground(colorGreen).Render("✓")
+				sync = " " + strings.Join(parts, " ")
 			}
 		}
 
-		label := headMark + tag + "  " + name + sync
+		label := tag + " " + name + sync
+		if badge != "" {
+			label += "  " + badge
+		}
+
 		items = append(items, branchItem{branch: b, label: label})
 	}
 	return items
@@ -128,7 +143,7 @@ func kindNameStyle(kind gitflow.BranchKind, isHead bool) lipgloss.Style {
 	var fg lipgloss.Color
 	switch kind {
 	case gitflow.KindMain:
-		fg = colorGold
+		fg = colorYellow
 	case gitflow.KindDevelop:
 		fg = colorCyan
 	case gitflow.KindFeature:
@@ -151,14 +166,23 @@ func kindNameStyle(kind gitflow.BranchKind, isHead bool) lipgloss.Style {
 
 func commitListItems(commits []git.Commit) []list.Item {
 	items := make([]list.Item, 0, len(commits))
-	hashStyle := lipgloss.NewStyle().Foreground(colorBlue).Bold(true)
-	dateStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	hashStyle := lipgloss.NewStyle().Foreground(colorCyan).Bold(true)
+	dateStyle := lipgloss.NewStyle().Foreground(colorFgDim)
+	authorStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
 	for _, c := range commits {
 		hash := hashStyle.Render(c.Hash)
 		date := dateStyle.Render(c.Date)
-		subject := truncateString(c.Subject, 60)
+		author := ""
+		if c.Author != "" {
+			author = authorStyle.Render("@" + c.Author)
+		}
+		subject := truncateString(c.Subject, 50)
+
 		label := hash + "  " + date + "  " + subject
+		if author != "" {
+			label += "  " + author
+		}
 		items = append(items, commitItem{commit: c, label: label})
 	}
 	return items
@@ -170,8 +194,8 @@ func fileListItems(files []git.FileStatus, st uiStyles) []list.Item {
 	items := make([]list.Item, 0, len(files))
 	for _, f := range files {
 		badge, indicator := fileStatusBadge(f, st)
-		path := truncateString(f.DisplayPath(), 50)
-		label := badge + "  " + path + "  " + indicator
+		path := truncateString(f.DisplayPath(), 40)
+		label := badge + " " + path + "  " + indicator
 		items = append(items, fileItem{file: f, label: label})
 	}
 	return items
@@ -184,7 +208,7 @@ func fileStatusBadge(f git.FileStatus, st uiStyles) (string, string) {
 	switch {
 	case f.IsUntracked():
 		return st.badge.untracked.Render("[??]"),
-			lipgloss.NewStyle().Foreground(colorMuted).Render("untracked")
+			lipgloss.NewStyle().Foreground(colorFgDim).Render("untracked")
 	case f.IsStaged() && f.IsUnstaged():
 		return st.badge.both.Render("[" + xy + "]"),
 			st.badge.both.Render("staged+unstaged")
@@ -204,7 +228,7 @@ func fileStatusBadge(f git.FileStatus, st uiStyles) (string, string) {
 func stashListItems(entries []git.StashEntry) []list.Item {
 	items := make([]list.Item, 0, len(entries))
 	refStyle := lipgloss.NewStyle().Foreground(colorPurple).Bold(true)
-	timeStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	timeStyle := lipgloss.NewStyle().Foreground(colorFgDim)
 
 	for _, e := range entries {
 		ref := refStyle.Render(e.Ref)
