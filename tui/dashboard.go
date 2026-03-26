@@ -672,49 +672,80 @@ func (a *App) View() string {
 	// ── bottom navbar ─────────────────────────────────────────────────────────
 	navBar := a.renderNavbar(totalW)
 
-	// ── height budget: header(1) + cards(3) + body + help?(1) + status(1) + nav(1)
-	usedRows := 3 // header + status + navbar
+	// ── height budget ─────────────────────────────────────────────────────────
+	// header(1) + cards(3) + body + cmdPalette(4) + status(1) + nav(1) + help?(1)
+	usedRows := 10 // header + cards(3) + cmdPalette(4) + status + navbar
 	if a.showHelp {
 		usedRows++
 	}
-	cardRows := 3
-	usedRows += cardRows
 	contentHeight := max(a.height-usedRows, 8)
 	contentWidth := max(totalW-2, 40)
 
-	// ── metric cards row ──────────────────────────────────────────────────────
-	cardRow := a.renderMetricCards(contentWidth)
-
-	// ── column widths (weight-based) ──────────────────────────────────────────
-	leftWeight, centerWeight, rightWeight := 3, 4, 3
+	// ── column widths: LEFT(2) CENTER(5) RIGHT(3) ─────────────────────────────
+	leftWeight, centerWeight, rightWeight := 2, 5, 3
 	totalWeight := leftWeight + centerWeight + rightWeight
 	leftWidth := (contentWidth * leftWeight) / totalWeight
 	centerWidth := (contentWidth * centerWeight) / totalWeight
 	rightWidth := contentWidth - leftWidth - centerWidth
 
-	// ── row heights ───────────────────────────────────────────────────────────
-	leftTopHeight := max(6, (contentHeight*2)/3)
-	leftBottomHeight := max(4, contentHeight-leftTopHeight)
-
-	rightTopHeight := max(6, (contentHeight*2)/5)
-	rightBottomHeight := max(4, contentHeight-rightTopHeight)
-
-	// body heights = panel height − border(2) − title row(1)
-	branchBodyH := max(1, leftTopHeight-3)
-	stashBodyH := max(1, leftBottomHeight-3)
-	logBodyH := max(1, contentHeight-3)
-	statusBodyH := max(1, rightTopHeight-3)
-	diffBodyH := max(1, rightBottomHeight-3)
-
-	// inner widths = column width − border(2)
+	// ── LEFT column: branches + stash ─────────────────────────────────────────
+	branchH := max(6, (contentHeight*3)/4)
+	stashH := max(4, contentHeight-branchH)
+	branchBodyH := max(1, branchH-3)
+	stashBodyH := max(1, stashH-3)
 	branchInnerW := max(1, leftWidth-2)
-	centerInnerW := max(1, centerWidth-2)
-	rightInnerW := max(1, rightWidth-2)
 
-	// ── resize widgets ────────────────────────────────────────────────────────
 	a.branches.SetSize(branchInnerW, branchBodyH)
 	a.stash.SetSize(branchInnerW, stashBodyH)
+
+	branchCount := a.branches.Items()
+	stashCount := a.stash.Items()
+
+	branchContent := a.branches.View()
+	if len(branchCount) == 0 {
+		branchContent = emptyState("No branches found", "run: git init")
+	}
+	stashContent := a.stash.View()
+	if len(stashCount) == 0 {
+		stashContent = emptyState("No stashes", "a: stash changes")
+	}
+
+	leftCol := lipgloss.JoinVertical(
+		lipgloss.Left,
+		a.renderPanel(
+			panelHeader("ACTIVE_THREADS", len(branchCount), a.activePanel == panelBranches),
+			branchContent, leftWidth, branchH, a.activePanel == panelBranches),
+		a.renderPanel(
+			panelHeader("STASH", len(stashCount), a.activePanel == panelStash),
+			stashContent, leftWidth, stashH, a.activePanel == panelStash),
+	)
+
+	// ── CENTER column: metric cards (top) + log (below) ───────────────────────
+	centerInnerW := max(1, centerWidth-2)
+	logH := max(6, contentHeight-4) // 4 rows for cards section
+	logBodyH := max(1, logH-3)
 	a.log.SetSize(centerInnerW, logBodyH)
+
+	logCount := a.log.Items()
+	logContent := a.log.View()
+	if len(logCount) == 0 {
+		logContent = emptyState("No commits yet", "c: create first commit")
+	}
+
+	cardRow := a.renderMetricCards(centerWidth)
+	logPanel := a.renderPanel(
+		panelHeader("VISUAL_TREE_GRAPH", len(logCount), a.activePanel == panelLog),
+		logContent, centerWidth, logH, a.activePanel == panelLog)
+	centerCol := lipgloss.JoinVertical(lipgloss.Left, cardRow, logPanel)
+
+	// ── RIGHT column: activity log (top) + status (mid) + diff (bottom) ───────
+	rightInnerW := max(1, rightWidth-2)
+	activityH := max(5, (contentHeight*2)/5)
+	statusH := max(4, (contentHeight*1)/5)
+	diffH := max(4, contentHeight-activityH-statusH)
+	statusBodyH := max(1, statusH-3)
+	diffBodyH := max(1, diffH-3)
+
 	a.status.SetSize(rightInnerW, statusBodyH)
 	a.diff.Width = rightInnerW
 	a.diff.Height = diffBodyH
@@ -724,25 +755,7 @@ func (a *App) View() string {
 		a.diff.SetContent(colorizeDiff(a.rawDiff, rightInnerW))
 	}
 
-	// ── panel counts ──────────────────────────────────────────────────────────
-	branchCount := a.branches.Items()
-	stashCount := a.stash.Items()
-	logCount := a.log.Items()
 	statusCount := a.status.Items()
-
-	// ── render panels ─────────────────────────────────────────────────────────
-	branchContent := a.branches.View()
-	if len(branchCount) == 0 {
-		branchContent = emptyState("No branches found", "run: git init")
-	}
-	stashContent := a.stash.View()
-	if len(stashCount) == 0 {
-		stashContent = emptyState("No stashes", "a: stash changes")
-	}
-	logContent := a.log.View()
-	if len(logCount) == 0 {
-		logContent = emptyState("No commits yet", "c: create first commit")
-	}
 	statusContent := a.status.View()
 	if len(statusCount) == 0 {
 		statusContent = emptyState("Working tree clean", "nothing to commit")
@@ -752,35 +765,28 @@ func (a *App) View() string {
 		diffContent = emptyState("No diff", "select a file in Status")
 	}
 
-	leftCol := lipgloss.JoinVertical(
-		lipgloss.Left,
-		a.renderPanel(
-			panelHeader("ACTIVE_THREADS", len(branchCount), a.activePanel == panelBranches),
-			branchContent, leftWidth, leftTopHeight, a.activePanel == panelBranches),
-		a.renderPanel(
-			panelHeader("STASH", len(stashCount), a.activePanel == panelStash),
-			stashContent, leftWidth, leftBottomHeight, a.activePanel == panelStash),
-	)
-
-	centerCol := a.renderPanel(
-		panelHeader("VISUAL_TREE_GRAPH", len(logCount), a.activePanel == panelLog),
-		logContent, centerWidth, contentHeight, a.activePanel == panelLog)
-
+	activityContent := a.renderActivityLog(rightInnerW, max(1, activityH-3))
 	rightCol := lipgloss.JoinVertical(
 		lipgloss.Left,
 		a.renderPanel(
+			panelHeader("ACTIVITY_LOG", len(a.activityLog), false),
+			activityContent, rightWidth, activityH, false),
+		a.renderPanel(
 			panelHeader("STATUS", len(statusCount), a.activePanel == panelStatus),
-			statusContent, rightWidth, rightTopHeight, a.activePanel == panelStatus),
+			statusContent, rightWidth, statusH, a.activePanel == panelStatus),
 		a.renderPanel(
 			panelHeader("DIFF", 0, a.activePanel == panelDiff),
-			diffContent, rightWidth, rightBottomHeight, a.activePanel == panelDiff),
+			diffContent, rightWidth, diffH, a.activePanel == panelDiff),
 	)
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, centerCol, rightCol)
 
+	// ── command palette ───────────────────────────────────────────────────────
+	cmdPalette := a.renderCmdPalette(contentWidth)
+
 	// ── compose layout ────────────────────────────────────────────────────────
 	var parts []string
-	parts = append(parts, headerBar, cardRow, body)
+	parts = append(parts, headerBar, body, cmdPalette)
 	if a.showHelp {
 		parts = append(parts, a.styles.help.Render(helpLine()))
 	}
@@ -803,7 +809,7 @@ func (a *App) View() string {
 	return ui
 }
 
-// ── header bar: GIT_TERMINAL_V1 │ BRANCH │ [SYNC: OK] ────────────────────────
+// ── header bar ────────────────────────────────────────────────────────────────
 
 func (a *App) renderHeaderBar(width int) string {
 	label := a.styles.header.label.Render("GIT_TERMINAL_V1")
@@ -814,7 +820,7 @@ func (a *App) renderHeaderBar(width int) string {
 	}
 	branchPill := a.styles.header.branch.Render(strings.ToUpper(branch))
 
-	// sync status
+	// sync status pill.
 	syncLabel := "[SYNC: OK]"
 	syncStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
 	if a.behind > 0 {
@@ -826,7 +832,7 @@ func (a *App) renderHeaderBar(width int) string {
 	}
 	syncPill := syncStyle.Render(syncLabel)
 
-	// AI indicator
+	// AI indicator.
 	aiPill := ""
 	if a.advisor != nil && a.advisor.Available() {
 		aiPill = "  " + a.styles.badge.ai.Render("✦ AI")
@@ -835,14 +841,13 @@ func (a *App) renderHeaderBar(width int) string {
 	sep := lipgloss.NewStyle().Foreground(colorDim).Render("  │  ")
 	left := label + sep + branchPill + sep + syncPill + aiPill
 
-	// loading spinner on the right
+	// loading spinner on the right.
 	right := ""
 	if a.loading {
 		right = a.spinner.View() + " " +
 			lipgloss.NewStyle().Foreground(colorMagenta).Bold(true).Render(a.loadingLabel)
 	}
 
-	// pad to fill width
 	content := left
 	if right != "" {
 		content = left + "  " + right
@@ -851,57 +856,164 @@ func (a *App) renderHeaderBar(width int) string {
 	return a.styles.header.bar.Width(width).Render(content)
 }
 
-// ── metric cards: LOCAL_HEAD  COMMIT_DENSITY  STASHED_OBJECTS ─────────────────
+// ── metric cards ──────────────────────────────────────────────────────────────
 
 func (a *App) renderMetricCards(width int) string {
-	cardCount := 4
-	cardW := max(12, (width-cardCount+1)/cardCount)
+	cardCount := 3
+	cardW := max(14, (width-cardCount+1)/cardCount)
 
-	// Card 1: LOCAL_HEAD
+	// Card 1: LOCAL_HEAD with tracking info.
 	headVal := a.currentBranch
 	if headVal == "" {
 		headVal = "detached"
 	}
-	card1 := a.renderCard("LOCAL_HEAD", headVal, cardW, colorCyan)
+	trackingInfo := ""
+	for _, item := range a.branches.Items() {
+		if bi, ok := item.(branchItem); ok && bi.branch.IsHead && bi.branch.Upstream != "" {
+			trackingInfo = "● TRACKING: " + bi.branch.Upstream
+			break
+		}
+	}
+	card1 := a.renderCardWithSub("LOCAL_HEAD", headVal, trackingInfo, cardW, colorCyan)
 
-	// Card 2: COMMIT_DENSITY
+	// Card 2: COMMIT_DENSITY.
 	commitCount := len(a.log.Items())
-	syncInfo := ""
+	syncSub := ""
 	if a.ahead > 0 || a.behind > 0 {
-		syncInfo = fmt.Sprintf("  +%d -%d", a.ahead, a.behind)
+		syncSub = fmt.Sprintf("+%d  -%d", a.ahead, a.behind)
 	}
-	card2 := a.renderCard("COMMIT_DENSITY", fmt.Sprintf("%d COMMITS%s", commitCount, syncInfo), cardW, colorFgBold)
+	card2 := a.renderCardWithSub("COMMIT_DENSITY",
+		fmt.Sprintf("%d COMMITS", commitCount), syncSub, cardW, colorFgBold)
 
-	// Card 3: STASHED_OBJECTS
-	stashCount := len(a.stash.Items())
+	// Card 3: STASHED_OBJECTS with preview.
+	stashItems := a.stash.Items()
 	stashLabel := "EMPTY"
-	if stashCount > 0 {
-		stashLabel = fmt.Sprintf("%d OBJECTS", stashCount)
+	stashColor := colorMuted
+	stashSub := ""
+	if len(stashItems) > 0 {
+		stashLabel = fmt.Sprintf("%d OBJECTS", len(stashItems))
+		stashColor = colorPurple
+		if si, ok := stashItems[0].(stashItem); ok {
+			stashSub = truncateString(si.entry.Message, cardW-6)
+		}
 	}
-	card3 := a.renderCard("STASHED_OBJECTS", stashLabel, cardW, colorPurple)
+	card3 := a.renderCardWithSub("STASHED_OBJECTS", stashLabel, stashSub, cardW, stashColor)
 
-	// Card 4: WORKING_TREE
-	fileCount := len(a.status.Items())
-	treeLabel := "CLEAN"
-	treeColor := colorGreen
-	if fileCount > 0 {
-		treeLabel = fmt.Sprintf("%d FILES", fileCount)
-		treeColor = colorOrange
-	}
-	card4 := a.renderCard("WORKING_TREE", treeLabel, cardW, treeColor)
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, card1, card2, card3, card4)
+	return lipgloss.JoinHorizontal(lipgloss.Top, card1, card2, card3)
 }
 
-func (a *App) renderCard(label, value string, width int, valueColor lipgloss.Color) string {
+func (a *App) renderCardWithSub(label, value, sub string, width int, valueColor lipgloss.Color) string {
 	innerW := max(1, width-4)
 	labelLine := a.styles.card.label.Render(truncateString(label, innerW))
 	valueLine := lipgloss.NewStyle().Foreground(valueColor).Bold(true).Render(truncateString(value, innerW))
 	content := labelLine + "\n" + valueLine
+	if sub != "" {
+		subLine := lipgloss.NewStyle().Foreground(colorFgDim).Render(truncateString(sub, innerW))
+		content += "\n" + subLine
+	}
 	return a.styles.card.box.Width(innerW).Render(content)
 }
 
-// ── bottom navbar: [F] FEATURE  [R] RELEASE  [H] HOTFIX  [S] SYNC  [Q] QUIT ──
+// ── activity log panel ────────────────────────────────────────────────────────
+
+func (a *App) renderActivityLog(width, height int) string {
+	if len(a.activityLog) == 0 {
+		return emptyState("No activity yet", "actions will appear here")
+	}
+
+	dotStyles := map[string]lipgloss.Color{
+		"↑": colorCyan,
+		"↓": colorPurple,
+		"⟳": colorCyan,
+		"⎇": colorCyan,
+		"●": colorGreen,
+		"+": colorGreen,
+		"-": colorOrange,
+		"⊡": colorPurple,
+		"✕": colorRed,
+		"◆": colorCyan,
+		"✗": colorRed,
+		"■": colorMuted,
+	}
+
+	lines := make([]string, 0, min(height, len(a.activityLog)))
+
+	// Show most recent entries first.
+	start := len(a.activityLog) - height
+	if start < 0 {
+		start = 0
+	}
+	for i := len(a.activityLog) - 1; i >= start; i-- {
+		entry := a.activityLog[i]
+
+		dotColor := colorMuted
+		if c, ok := dotStyles[entry.icon]; ok {
+			dotColor = c
+		}
+		dot := lipgloss.NewStyle().Foreground(dotColor).Bold(true).Render(entry.icon)
+
+		textStyle := lipgloss.NewStyle().Foreground(colorFg)
+		if entry.isError {
+			textStyle = lipgloss.NewStyle().Foreground(colorRed)
+		}
+		text := textStyle.Render(truncateString(entry.text, max(1, width-4)))
+
+		line := dot + " " + text
+		lines = append(lines, line)
+
+		if len(lines) >= height {
+			break
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// ── command palette ───────────────────────────────────────────────────────────
+
+func (a *App) renderCmdPalette(width int) string {
+	key := func(k, label string) string {
+		kStyle := lipgloss.NewStyle().
+			Foreground(colorBg).
+			Background(colorCyan).
+			Bold(true).
+			Padding(0, 1)
+		lStyle := lipgloss.NewStyle().Foreground(colorFg)
+		return kStyle.Render(k) + " " + lStyle.Render(label)
+	}
+
+	row1 := strings.Join([]string{
+		key("N", "NEW_FEATURE"),
+		key("S", "SYNC_REMOTE"),
+		key("P", "PUSH_COMMIT"),
+	}, "   ")
+
+	promptStyle := lipgloss.NewStyle().Foreground(colorCyan).Bold(true)
+	inputHint := lipgloss.NewStyle().Foreground(colorFgDim)
+	row2 := promptStyle.Render("λ ") + inputHint.Render("Enter git command...")
+
+	// Status indicators on the right of row2.
+	sshReady := lipgloss.NewStyle().Foreground(colorGreen).Bold(true).Render("SSH_READY")
+	diffMode := "LINE"
+	if a.wordDiff {
+		diffMode = "WORD"
+	}
+	diffLabel := lipgloss.NewStyle().Foreground(colorMuted).Render("DIFF_" + diffMode)
+
+	statusRight := sshReady + "  " + diffLabel
+	row2Full := row2 + "   " + statusRight
+
+	content := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colorDim).
+		Width(max(1, width-2)).
+		Padding(0, 1).
+		Render(row1 + "\n" + row2Full)
+
+	return content
+}
+
+// ── bottom navbar ─────────────────────────────────────────────────────────────
 
 func (a *App) renderNavbar(width int) string {
 	items := []struct {
