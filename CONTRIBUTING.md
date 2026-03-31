@@ -75,9 +75,3 @@ When filing an issue, include:
 - Steps to reproduce
 - Expected vs actual behavior
 - Relevant logs or screenshots
-
-## Design Notes
-
-A command-palette/workspace redesign spec exists at:
-
-- `docs/superpowers/specs/2026-03-11-command-palette-workspace-tui-design.md`

@@ -164,7 +164,7 @@ func NewApp(repo *git.Repo, cfg config.Config, opts ...AppOption) *App {
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = lipgloss.NewStyle().Foreground(colorMagenta)
+	sp.Style = lipgloss.NewStyle().Foreground(accentMagenta)
 
 	p := textinput.New()
 	p.Prompt = "> "
@@ -203,12 +203,16 @@ func newPanelList() list.Model {
 	delegate.ShowDescription = false
 	delegate.SetSpacing(0)
 	delegate.Styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(colorFg).
+		Foreground(textPrimary).
 		PaddingLeft(1)
 	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
-		Foreground(colorCyan).
+		Background(bgElevated).
+		Foreground(textPrimary).
 		Bold(true).
-		PaddingLeft(0)
+		PaddingLeft(0).
+		BorderLeft(true).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(accentCyan)
 
 	m := list.New([]list.Item{}, delegate, 0, 0)
 	m.SetShowTitle(false)

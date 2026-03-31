@@ -666,65 +666,61 @@ func (a *App) View() string {
 
 	totalW := max(a.width, 40)
 
-	// ── top header bar ────────────────────────────────────────────────────────
-	headerBar := a.renderHeaderBar(totalW)
+	// ── title bar ─────────────────────────────────────────────────────────────
+	titleBar := a.renderTitleBar(totalW)
+
+	// ── breadcrumb bar ────────────────────────────────────────────────────────
+	breadcrumb := a.renderBreadcrumb(totalW)
 
 	// ── bottom navbar ─────────────────────────────────────────────────────────
 	navBar := a.renderNavbar(totalW)
 
-	// ── height budget ─────────────────────────────────────────────────────────
-	// header(1) + cards(3) + body + cmdPalette(4) + status(1) + nav(1) + help?(1)
-	usedRows := 10 // header + cards(3) + cmdPalette(4) + status + navbar
+	// ── height budget: title(1) + breadcrumb(1) + cards(4) + body + status(1) + nav(1) + help?(1)
+	usedRows := 8
 	if a.showHelp {
 		usedRows++
 	}
-	contentHeight := max(a.height-usedRows, 8)
-	contentWidth := max(totalW-2, 40)
+	bodyHeight := max(8, a.height-usedRows)
+	contentWidth := max(totalW, 40)
 
-	// ── column widths: LEFT(2) CENTER(5) RIGHT(3) ─────────────────────────────
-	leftWeight, centerWeight, rightWeight := 2, 5, 3
-	totalWeight := leftWeight + centerWeight + rightWeight
-	leftWidth := (contentWidth * leftWeight) / totalWeight
-	centerWidth := (contentWidth * centerWeight) / totalWeight
-	rightWidth := contentWidth - leftWidth - centerWidth
+	// ── stats cards row ───────────────────────────────────────────────────────
+	cardRow := a.renderStatsCards(contentWidth)
 
-	// ── LEFT column: branches + stash ─────────────────────────────────────────
-	branchH := max(6, (contentHeight*3)/4)
-	stashH := max(4, contentHeight-branchH)
-	branchBodyH := max(1, branchH-3)
-	stashBodyH := max(1, stashH-3)
+	// ── column widths: LEFT(20%) CENTER(50%) RIGHT(30%) ───────────────────────
+	leftWidth := max(20, (contentWidth*20)/100)
+	rightWidth := max(24, (contentWidth*30)/100)
+	centerWidth := max(30, contentWidth-leftWidth-rightWidth)
+
+	// ── LEFT column: ACTIVE_THREADS + CMD_PALETTE ─────────────────────────────
+	cmdPaletteH := 7
+	branchH := max(6, bodyHeight-cmdPaletteH)
+	branchBodyH := max(1, branchH-2)
 	branchInnerW := max(1, leftWidth-2)
 
 	a.branches.SetSize(branchInnerW, branchBodyH)
-	a.stash.SetSize(branchInnerW, stashBodyH)
-
 	branchCount := a.branches.Items()
-	stashCount := a.stash.Items()
-
 	branchContent := a.branches.View()
 	if len(branchCount) == 0 {
 		branchContent = emptyState("No branches found", "run: git init")
 	}
-	stashContent := a.stash.View()
-	if len(stashCount) == 0 {
-		stashContent = emptyState("No stashes", "a: stash changes")
-	}
+
+	cmdPalette := a.renderCmdPalette(leftWidth)
 
 	leftCol := lipgloss.JoinVertical(
 		lipgloss.Left,
-		a.renderPanel(
-			panelHeader("ACTIVE_THREADS", len(branchCount), a.activePanel == panelBranches),
-			branchContent, leftWidth, branchH, a.activePanel == panelBranches),
-		a.renderPanel(
-			panelHeader("STASH", len(stashCount), a.activePanel == panelStash),
-			stashContent, leftWidth, stashH, a.activePanel == panelStash),
+		a.renderSection("ACTIVE_THREADS", branchContent, leftWidth, branchH, a.activePanel == panelBranches),
+		cmdPalette,
 	)
 
-	// ── CENTER column: metric cards (top) + log (below) ───────────────────────
+	// ── CENTER column: VISUAL_TREE_GRAPH + STASH ──────────────────────────────
 	centerInnerW := max(1, centerWidth-2)
-	logH := max(6, contentHeight-4) // 4 rows for cards section
-	logBodyH := max(1, logH-3)
+	stashH := max(3, bodyHeight/5)
+	logH := max(6, bodyHeight-stashH)
+	logBodyH := max(1, logH-2)
+	stashBodyH := max(1, stashH-2)
+
 	a.log.SetSize(centerInnerW, logBodyH)
+	a.stash.SetSize(centerInnerW, stashBodyH)
 
 	logCount := a.log.Items()
 	logContent := a.log.View()
@@ -732,19 +728,25 @@ func (a *App) View() string {
 		logContent = emptyState("No commits yet", "c: create first commit")
 	}
 
-	cardRow := a.renderMetricCards(centerWidth)
-	logPanel := a.renderPanel(
-		panelHeader("VISUAL_TREE_GRAPH", len(logCount), a.activePanel == panelLog),
-		logContent, centerWidth, logH, a.activePanel == panelLog)
-	centerCol := lipgloss.JoinVertical(lipgloss.Left, cardRow, logPanel)
+	stashCount := a.stash.Items()
+	stashContent := a.stash.View()
+	if len(stashCount) == 0 {
+		stashContent = emptyState("No stashes", "a: stash changes")
+	}
 
-	// ── RIGHT column: activity log (top) + status (mid) + diff (bottom) ───────
+	centerCol := lipgloss.JoinVertical(
+		lipgloss.Left,
+		a.renderSection("VISUAL_TREE_GRAPH", logContent, centerWidth, logH, a.activePanel == panelLog),
+		a.renderSection("STASH", stashContent, centerWidth, stashH, a.activePanel == panelStash),
+	)
+
+	// ── RIGHT column: ACTIVITY_LOG + STATUS + DIFF ────────────────────────────
 	rightInnerW := max(1, rightWidth-2)
-	activityH := max(5, (contentHeight*2)/5)
-	statusH := max(4, (contentHeight*1)/5)
-	diffH := max(4, contentHeight-activityH-statusH)
-	statusBodyH := max(1, statusH-3)
-	diffBodyH := max(1, diffH-3)
+	activityH := max(5, bodyHeight/3)
+	statusH := max(4, bodyHeight/4)
+	diffH := max(4, bodyHeight-activityH-statusH)
+	statusBodyH := max(1, statusH-2)
+	diffBodyH := max(1, diffH-2)
 
 	a.status.SetSize(rightInnerW, statusBodyH)
 	a.diff.Width = rightInnerW
@@ -765,34 +767,28 @@ func (a *App) View() string {
 		diffContent = emptyState("No diff", "select a file in Status")
 	}
 
-	activityContent := a.renderActivityLog(rightInnerW, max(1, activityH-3))
+	activityContent := a.renderActivityLog(rightInnerW, max(1, activityH-2))
 	rightCol := lipgloss.JoinVertical(
 		lipgloss.Left,
-		a.renderPanel(
-			panelHeader("ACTIVITY_LOG", len(a.activityLog), false),
-			activityContent, rightWidth, activityH, false),
-		a.renderPanel(
-			panelHeader("STATUS", len(statusCount), a.activePanel == panelStatus),
-			statusContent, rightWidth, statusH, a.activePanel == panelStatus),
-		a.renderPanel(
-			panelHeader("DIFF", 0, a.activePanel == panelDiff),
-			diffContent, rightWidth, diffH, a.activePanel == panelDiff),
+		a.renderSection("ACTIVITY_LOG", activityContent, rightWidth, activityH, false),
+		a.renderSection("STATUS", statusContent, rightWidth, statusH, a.activePanel == panelStatus),
+		a.renderSection("DIFF", diffContent, rightWidth, diffH, a.activePanel == panelDiff),
 	)
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, centerCol, rightCol)
 
-	// ── command palette ───────────────────────────────────────────────────────
-	cmdPalette := a.renderCmdPalette(contentWidth)
-
 	// ── compose layout ────────────────────────────────────────────────────────
 	var parts []string
-	parts = append(parts, headerBar, body, cmdPalette)
+	parts = append(parts, titleBar, breadcrumb, cardRow, body)
 	if a.showHelp {
 		parts = append(parts, a.styles.help.Render(helpLine()))
 	}
 	parts = append(parts, a.statusLine(), navBar)
 
-	ui := a.styles.root.Render(strings.Join(parts, "\n"))
+	ui := lipgloss.NewStyle().
+		Background(bgBase).
+		Width(totalW).
+		Render(strings.Join(parts, "\n"))
 
 	// ── overlays ──────────────────────────────────────────────────────────────
 	if a.prompt.active {
@@ -809,60 +805,83 @@ func (a *App) View() string {
 	return ui
 }
 
-// ── header bar ────────────────────────────────────────────────────────────────
+// ── title bar ─────────────────────────────────────────────────────────────────
 
-func (a *App) renderHeaderBar(width int) string {
-	label := a.styles.header.label.Render("GIT_TERMINAL_V1")
+func (a *App) renderTitleBar(width int) string {
+	icon := lipgloss.NewStyle().Foreground(accentCyan).Render("▣")
+	title := lipgloss.NewStyle().Foreground(textPrimary).Bold(true).Render("  Main Dashboard (GITFLOW-TUI)")
+
+	right := ""
+	if a.loading {
+		right = a.spinner.View() + " " +
+			lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render(a.loadingLabel)
+	}
+
+	left := icon + title
+	content := left
+	if right != "" {
+		gap := max(1, width-lipgloss.Width(left)-lipgloss.Width(right)-2)
+		content = left + strings.Repeat(" ", gap) + right
+	}
+
+	return lipgloss.NewStyle().
+		Background(bgSurface).
+		Foreground(textPrimary).
+		Width(width).
+		Padding(0, 1).
+		Render(content)
+}
+
+// ── breadcrumb bar ────────────────────────────────────────────────────────────
+
+func (a *App) renderBreadcrumb(width int) string {
+	sep := lipgloss.NewStyle().Foreground(textDim).Render("  │  ")
+
+	label := lipgloss.NewStyle().Foreground(accentCyan).Bold(true).Render("GIT_TERMINAL_V1")
 
 	branch := a.currentBranch
 	if branch == "" {
 		branch = "DETACHED"
 	}
-	branchPill := a.styles.header.branch.Render(strings.ToUpper(branch))
+	branchText := lipgloss.NewStyle().Foreground(textPrimary).Render(strings.ToUpper(branch))
 
-	// sync status pill.
 	syncLabel := "[SYNC: OK]"
-	syncStyle := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
+	syncStyle := lipgloss.NewStyle().Foreground(accentGreen).Bold(true)
 	if a.behind > 0 {
 		syncLabel = fmt.Sprintf("[SYNC: BEHIND %d]", a.behind)
-		syncStyle = lipgloss.NewStyle().Foreground(colorOrange).Bold(true)
+		syncStyle = lipgloss.NewStyle().Foreground(accentOrange).Bold(true)
 	} else if a.ahead > 0 {
 		syncLabel = fmt.Sprintf("[SYNC: AHEAD %d]", a.ahead)
-		syncStyle = lipgloss.NewStyle().Foreground(colorCyan).Bold(true)
+		syncStyle = lipgloss.NewStyle().Foreground(accentCyan).Bold(true)
 	}
 	syncPill := syncStyle.Render(syncLabel)
 
-	// AI indicator.
-	aiPill := ""
+	left := label + sep + branchText + sep + syncPill
+
+	// Right-aligned indicators.
+	rightParts := make([]string, 0, 2)
 	if a.advisor != nil && a.advisor.Available() {
-		aiPill = "  " + a.styles.badge.ai.Render("✦ AI")
+		rightParts = append(rightParts, a.styles.badge.ai.Render("✦ AI"))
 	}
+	rightParts = append(rightParts, lipgloss.NewStyle().Foreground(textSecondary).Render("⚡"))
 
-	sep := lipgloss.NewStyle().Foreground(colorDim).Render("  │  ")
-	left := label + sep + branchPill + sep + syncPill + aiPill
+	right := strings.Join(rightParts, "  ")
+	gap := max(1, width-lipgloss.Width(left)-lipgloss.Width(right)-4)
+	content := left + strings.Repeat(" ", gap) + right
 
-	// loading spinner on the right.
-	right := ""
-	if a.loading {
-		right = a.spinner.View() + " " +
-			lipgloss.NewStyle().Foreground(colorMagenta).Bold(true).Render(a.loadingLabel)
-	}
-
-	content := left
-	if right != "" {
-		content = left + "  " + right
-	}
-
-	return a.styles.header.bar.Width(width).Render(content)
+	return lipgloss.NewStyle().
+		Background(bgSurface).
+		Width(width).
+		Padding(0, 1).
+		Render(content)
 }
 
-// ── metric cards ──────────────────────────────────────────────────────────────
+// ── stats cards ───────────────────────────────────────────────────────────────
 
-func (a *App) renderMetricCards(width int) string {
+func (a *App) renderStatsCards(width int) string {
 	cardCount := 3
 	cardW := max(14, (width-cardCount+1)/cardCount)
 
-	// Card 1: LOCAL_HEAD with tracking info.
 	headVal := a.currentBranch
 	if headVal == "" {
 		headVal = "detached"
@@ -874,44 +893,48 @@ func (a *App) renderMetricCards(width int) string {
 			break
 		}
 	}
-	card1 := a.renderCardWithSub("LOCAL_HEAD", headVal, trackingInfo, cardW, colorCyan)
+	card1 := renderStatsCard("LOCAL_HEAD", headVal, trackingInfo, cardW, accentCyan)
 
-	// Card 2: COMMIT_DENSITY.
 	commitCount := len(a.log.Items())
 	syncSub := ""
 	if a.ahead > 0 || a.behind > 0 {
 		syncSub = fmt.Sprintf("+%d  -%d", a.ahead, a.behind)
 	}
-	card2 := a.renderCardWithSub("COMMIT_DENSITY",
-		fmt.Sprintf("%d COMMITS", commitCount), syncSub, cardW, colorFgBold)
+	card2 := renderStatsCard("COMMIT_DENSITY",
+		fmt.Sprintf("%d COMMITS", commitCount), syncSub, cardW, textPrimary)
 
-	// Card 3: STASHED_OBJECTS with preview.
 	stashItems := a.stash.Items()
 	stashLabel := "EMPTY"
-	stashColor := colorMuted
+	stashColor := textSecondary
 	stashSub := ""
 	if len(stashItems) > 0 {
 		stashLabel = fmt.Sprintf("%d OBJECTS", len(stashItems))
-		stashColor = colorPurple
+		stashColor = accentYellow
 		if si, ok := stashItems[0].(stashItem); ok {
-			stashSub = truncateString(si.entry.Message, cardW-6)
+			stashSub = "WIP: " + truncateString(si.entry.Message, cardW-10)
 		}
 	}
-	card3 := a.renderCardWithSub("STASHED_OBJECTS", stashLabel, stashSub, cardW, stashColor)
+	card3 := renderStatsCard("STASHED_OBJECTS", stashLabel, stashSub, cardW, stashColor)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, card1, card2, card3)
 }
 
-func (a *App) renderCardWithSub(label, value, sub string, width int, valueColor lipgloss.Color) string {
+func renderStatsCard(label, value, sub string, width int, valueColor lipgloss.Color) string {
 	innerW := max(1, width-4)
-	labelLine := a.styles.card.label.Render(truncateString(label, innerW))
+	labelLine := lipgloss.NewStyle().Foreground(textSecondary).Render(truncateString(label, innerW))
 	valueLine := lipgloss.NewStyle().Foreground(valueColor).Bold(true).Render(truncateString(value, innerW))
 	content := labelLine + "\n" + valueLine
 	if sub != "" {
-		subLine := lipgloss.NewStyle().Foreground(colorFgDim).Render(truncateString(sub, innerW))
+		subLine := lipgloss.NewStyle().Foreground(textSecondary).Render(truncateString(sub, innerW))
 		content += "\n" + subLine
 	}
-	return a.styles.card.box.Width(innerW).Render(content)
+	return lipgloss.NewStyle().
+		Background(bgSurface).
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(bgBorder).
+		Width(innerW).
+		Padding(0, 1).
+		Render(content)
 }
 
 // ── activity log panel ────────────────────────────────────────────────────────
@@ -921,24 +944,23 @@ func (a *App) renderActivityLog(width, height int) string {
 		return emptyState("No activity yet", "actions will appear here")
 	}
 
-	dotStyles := map[string]lipgloss.Color{
-		"↑": colorCyan,
-		"↓": colorPurple,
-		"⟳": colorCyan,
-		"⎇": colorCyan,
-		"●": colorGreen,
-		"+": colorGreen,
-		"-": colorOrange,
-		"⊡": colorPurple,
-		"✕": colorRed,
-		"◆": colorCyan,
-		"✗": colorRed,
-		"■": colorMuted,
+	dotColors := map[string]lipgloss.Color{
+		"↑": accentCyan,
+		"↓": accentMagenta,
+		"⟳": accentCyan,
+		"⎇": accentCyan,
+		"●": accentGreen,
+		"+": accentGreen,
+		"-": accentOrange,
+		"⊡": accentYellow,
+		"✕": accentRed,
+		"◆": accentCyan,
+		"✗": accentRed,
+		"■": textSecondary,
 	}
 
 	lines := make([]string, 0, min(height, len(a.activityLog)))
 
-	// Show most recent entries first.
 	start := len(a.activityLog) - height
 	if start < 0 {
 		start = 0
@@ -946,15 +968,15 @@ func (a *App) renderActivityLog(width, height int) string {
 	for i := len(a.activityLog) - 1; i >= start; i-- {
 		entry := a.activityLog[i]
 
-		dotColor := colorMuted
-		if c, ok := dotStyles[entry.icon]; ok {
+		dotColor := textSecondary
+		if c, ok := dotColors[entry.icon]; ok {
 			dotColor = c
 		}
-		dot := lipgloss.NewStyle().Foreground(dotColor).Bold(true).Render(entry.icon)
+		dot := lipgloss.NewStyle().Foreground(dotColor).Bold(true).Render("●")
 
-		textStyle := lipgloss.NewStyle().Foreground(colorFg)
+		textStyle := lipgloss.NewStyle().Foreground(textPrimary)
 		if entry.isError {
-			textStyle = lipgloss.NewStyle().Foreground(colorRed)
+			textStyle = lipgloss.NewStyle().Foreground(accentRed)
 		}
 		text := textStyle.Render(truncateString(entry.text, max(1, width-4)))
 
@@ -972,45 +994,41 @@ func (a *App) renderActivityLog(width, height int) string {
 // ── command palette ───────────────────────────────────────────────────────────
 
 func (a *App) renderCmdPalette(width int) string {
-	key := func(k, label string) string {
-		kStyle := lipgloss.NewStyle().
-			Foreground(colorBg).
-			Background(colorCyan).
-			Bold(true).
-			Padding(0, 1)
-		lStyle := lipgloss.NewStyle().Foreground(colorFg)
-		return kStyle.Render(k) + " " + lStyle.Render(label)
+	sectionLabel := lipgloss.NewStyle().
+		Foreground(textSecondary).
+		Bold(true).
+		Render("CMD_PALETTE")
+
+	kStyle := lipgloss.NewStyle().
+		Foreground(bgBase).
+		Background(accentCyan).
+		Bold(true).
+		Padding(0, 1)
+	lStyle := lipgloss.NewStyle().Foreground(textPrimary)
+	hintStyle := lipgloss.NewStyle().Foreground(textSecondary)
+
+	keyRow := func(k, label, hint string) string {
+		return kStyle.Render(k) + " " + lStyle.Render(label) +
+			strings.Repeat(" ", max(1, width-lipgloss.Width(kStyle.Render(k))-lipgloss.Width(lStyle.Render(label))-lipgloss.Width(hintStyle.Render(hint))-8)) +
+			hintStyle.Render(hint)
 	}
 
-	row1 := strings.Join([]string{
-		key("N", "NEW_FEATURE"),
-		key("S", "SYNC_REMOTE"),
-		key("P", "PUSH_COMMIT"),
-	}, "   ")
+	rows := make([]string, 0, 5)
+	rows = append(rows,
+		sectionLabel,
+		keyRow("N", "NEW_FEATURE", "TAB"),
+		keyRow("S", "SYNC_REMOTE", "S"),
+		keyRow("P", "PUSH_COMMIT", "P"),
+	)
 
-	promptStyle := lipgloss.NewStyle().Foreground(colorCyan).Bold(true)
-	inputHint := lipgloss.NewStyle().Foreground(colorFgDim)
-	row2 := promptStyle.Render("λ ") + inputHint.Render("Enter git command...")
+	promptStyle := lipgloss.NewStyle().Foreground(accentCyan).Bold(true)
+	inputHint := lipgloss.NewStyle().Foreground(textDim)
+	rows = append(rows, promptStyle.Render("λ ")+inputHint.Render("Enter git command..."))
 
-	// Status indicators on the right of row2.
-	sshReady := lipgloss.NewStyle().Foreground(colorGreen).Bold(true).Render("SSH_READY")
-	diffMode := "LINE"
-	if a.wordDiff {
-		diffMode = "WORD"
-	}
-	diffLabel := lipgloss.NewStyle().Foreground(colorMuted).Render("DIFF_" + diffMode)
-
-	statusRight := sshReady + "  " + diffLabel
-	row2Full := row2 + "   " + statusRight
-
-	content := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorDim).
-		Width(max(1, width-2)).
+	return lipgloss.NewStyle().
+		Width(max(1, width)).
 		Padding(0, 1).
-		Render(row1 + "\n" + row2Full)
-
-	return content
+		Render(strings.Join(rows, "\n"))
 }
 
 // ── bottom navbar ─────────────────────────────────────────────────────────────
@@ -1038,42 +1056,39 @@ func (a *App) renderNavbar(width int) string {
 		tabs = append(tabs, tab)
 	}
 
-	sep := lipgloss.NewStyle().Foreground(colorDim).Background(colorBgHeader).Render("  ")
-	inner := strings.Join(tabs, sep)
-	return a.styles.navbar.bar.Width(width).Render(inner)
+	inner := strings.Join(tabs, "    ")
+
+	// Right side indicators.
+	diffMode := "LINE"
+	if a.wordDiff {
+		diffMode = "WORD"
+	}
+	rightParts := lipgloss.NewStyle().Foreground(textSecondary).Render("DIFF:" + diffMode)
+	gap := max(1, width-lipgloss.Width(inner)-lipgloss.Width(rightParts)-4)
+	content := inner + strings.Repeat(" ", gap) + rightParts
+
+	return lipgloss.NewStyle().
+		Background(bgSurface).
+		Width(width).
+		Padding(0, 1).
+		Render(content)
 }
 
-// ── panels ────────────────────────────────────────────────────────────────────
+// ── sections (borderless panels with title label above content) ───────────────
 
-// panelHeader builds a styled title line with an optional item-count badge.
-func panelHeader(name string, count int, focused bool) string {
-	nameStyle := lipgloss.NewStyle().Foreground(colorMuted)
-	if focused {
-		nameStyle = lipgloss.NewStyle().Foreground(colorCyan).Bold(true)
-	}
-	title := nameStyle.Render(name)
-	if count > 0 {
-		countStyle := lipgloss.NewStyle().Foreground(colorFgDim)
-		if focused {
-			countStyle = lipgloss.NewStyle().Foreground(colorCyan)
-		}
-		title += " " + countStyle.Render(fmt.Sprintf("(%d)", count))
-	}
-	return title
-}
-
-func (a *App) renderPanel(header, content string, width, height int, focused bool) string {
+func (a *App) renderSection(name, content string, width, height int, focused bool) string {
 	innerW := max(1, width-2)
-	innerH := max(1, height-2)
 
-	header = truncateString(header, innerW)
-	bodyH := max(0, innerH-1)
+	titleStyle := lipgloss.NewStyle().Foreground(textSecondary).Bold(true)
+	if focused {
+		titleStyle = lipgloss.NewStyle().Foreground(accentCyan).Bold(true)
+	}
+	title := titleStyle.Render(name)
+
+	bodyH := max(1, height-2)
 	body := renderPanelBody(content, bodyH)
 
-	panelContent := header
-	if bodyH > 0 {
-		panelContent += "\n" + body
-	}
+	panelContent := title + "\n" + body
 
 	style := a.styles.panel
 	if focused {
@@ -1090,9 +1105,9 @@ func (a *App) renderPrompt() string {
 
 	a.prompt.input.Width = innerW - 2
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(colorCyan)
-	hintStyle := lipgloss.NewStyle().Foreground(colorMuted)
-	keyStyle := lipgloss.NewStyle().Foreground(colorCyan)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(accentCyan)
+	hintStyle := lipgloss.NewStyle().Foreground(textSecondary)
+	keyStyle := lipgloss.NewStyle().Foreground(accentCyan)
 
 	keys := keyStyle.Render("[Enter]") + hintStyle.Render(" confirm  ") +
 		keyStyle.Render("[Esc]") + hintStyle.Render(" cancel")
@@ -1112,9 +1127,9 @@ func (a *App) renderPrompt() string {
 	content := strings.Join(rows, "\n")
 
 	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorCyan).
-		Background(colorBgModal).
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(accentCyan).
+		Background(bgElevated).
 		Width(w - 2).
 		Render(content)
 }
@@ -1139,8 +1154,8 @@ func promptExample(mode promptMode) string {
 func (a *App) renderAIOverlay() string {
 	w := min(max(70, a.width*3/4), a.width-4)
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(colorMagenta)
-	hintStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(accentMagenta)
+	hintStyle := lipgloss.NewStyle().Foreground(textSecondary)
 
 	hint := hintStyle.Render("[Esc] close")
 
@@ -1153,9 +1168,9 @@ func (a *App) renderAIOverlay() string {
 	}, "\n")
 
 	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorMagenta).
-		Background(colorBgModal).
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(accentMagenta).
+		Background(bgElevated).
 		Width(w - 2).
 		Render(content)
 }
@@ -1168,36 +1183,32 @@ func (a *App) statusLine() string {
 		branch = "(detached)"
 	}
 
-	branchStyle := lipgloss.NewStyle().Foreground(colorCyan).Bold(true)
+	branchStyle := lipgloss.NewStyle().Foreground(accentCyan).Bold(true)
 	left := branchStyle.Render(branch)
 
-	// sync arrows
 	if a.ahead > 0 {
-		left += " " + lipgloss.NewStyle().Foreground(colorGreen).Render(fmt.Sprintf("↑%d", a.ahead))
+		left += " " + lipgloss.NewStyle().Foreground(accentGreen).Render(fmt.Sprintf("↑%d", a.ahead))
 	}
 	if a.behind > 0 {
-		left += " " + lipgloss.NewStyle().Foreground(colorOrange).Render(fmt.Sprintf("↓%d", a.behind))
+		left += " " + lipgloss.NewStyle().Foreground(accentOrange).Render(fmt.Sprintf("↓%d", a.behind))
 	}
 
-	// diff mode
-	diffMode := lipgloss.NewStyle().Foreground(colorFgDim).Render("line")
+	diffMode := lipgloss.NewStyle().Foreground(textDim).Render("line")
 	if a.wordDiff {
-		diffMode = lipgloss.NewStyle().Foreground(colorCyan).Render("word")
+		diffMode = lipgloss.NewStyle().Foreground(accentCyan).Render("word")
 	}
-	left += "  " + lipgloss.NewStyle().Foreground(colorFgDim).Render("diff:") + diffMode
+	left += "  " + lipgloss.NewStyle().Foreground(textDim).Render("diff:") + diffMode
 
-	// loading
 	if a.loading {
 		left = a.spinner.View() + " " +
-			lipgloss.NewStyle().Foreground(colorMagenta).Bold(true).Render(a.loadingLabel) +
+			lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render(a.loadingLabel) +
 			"  " + left
 	}
 
-	// right: notification or command palette hints
 	right := a.notification
 	if right == "" {
-		muted := lipgloss.NewStyle().Foreground(colorFgDim)
-		key := lipgloss.NewStyle().Foreground(colorCyan)
+		muted := lipgloss.NewStyle().Foreground(textDim)
+		key := lipgloss.NewStyle().Foreground(accentCyan)
 		right = key.Render("n") + muted.Render(":new  ") +
 			key.Render("c") + muted.Render(":commit  ") +
 			key.Render("s") + muted.Render(":stage  ") +
@@ -1206,7 +1217,7 @@ func (a *App) statusLine() string {
 			key.Render("?") + muted.Render(":help")
 	}
 
-	sep := lipgloss.NewStyle().Foreground(colorDim).Render("  │  ")
+	sep := lipgloss.NewStyle().Foreground(textDim).Render("  │  ")
 	combined := left + sep + right
 	combined = truncateString(combined, max(1, a.width-4))
 
@@ -1230,16 +1241,16 @@ func renderPanelBody(content string, height int) string {
 }
 
 func emptyState(primary, hint string) string {
-	line1 := lipgloss.NewStyle().Foreground(colorMuted).Render(primary)
-	line2 := lipgloss.NewStyle().Foreground(colorFgDim).Render(hint)
+	line1 := lipgloss.NewStyle().Foreground(textSecondary).Render(primary)
+	line2 := lipgloss.NewStyle().Foreground(textDim).Render(hint)
 	return line1 + "\n" + line2
 }
 
 func helpLine() string {
 	key := func(k string) string {
-		return lipgloss.NewStyle().Foreground(colorCyan).Bold(true).Render(k)
+		return lipgloss.NewStyle().Foreground(accentCyan).Bold(true).Render(k)
 	}
-	sep := lipgloss.NewStyle().Foreground(colorDim).Render("  ")
+	sep := lipgloss.NewStyle().Foreground(textDim).Render("  ")
 	return strings.Join([]string{
 		key("tab") + " focus",
 		key("enter") + " action",

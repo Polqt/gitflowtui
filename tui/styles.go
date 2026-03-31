@@ -2,46 +2,68 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Cyberpunk terminal palette — dark bg, cyan/magenta accents, neon indicators.
-const (
-	colorCyan    = lipgloss.Color("#00e5ff") // focused border, primary accent
-	colorMagenta = lipgloss.Color("#ff00ff") // AI, hotfix, accent 2
-	colorGreen   = lipgloss.Color("#39ff14") // staged, success, sync OK
-	colorRed     = lipgloss.Color("#ff1744") // error, hotfix, deleted
-	colorOrange  = lipgloss.Color("#ff9100") // warning, behind, unstaged
-	colorYellow  = lipgloss.Color("#ffd600") // main/HEAD, gold
-	colorBlue    = lipgloss.Color("#448aff") // feature, hash
-	colorPurple  = lipgloss.Color("#b388ff") // AI badge, stash ref
+// ── Design System: Deep-dark terminal with muted surfaces & accent pops ──────
 
-	colorFg       = lipgloss.Color("#e0e0e0") // primary text
-	colorFgBold   = lipgloss.Color("#ffffff") // emphatic text
-	colorFgDim    = lipgloss.Color("#757575") // very muted
-	colorMuted    = lipgloss.Color("#9e9e9e") // secondary text
-	colorDim      = lipgloss.Color("#424242") // inactive borders, separators
-	colorBg       = lipgloss.Color("#0d1117") // deep bg
-	colorBgPanel  = lipgloss.Color("#161b22") // panel bg
-	colorBgHeader = lipgloss.Color("#1a1a2e") // header bar bg
-	colorBgModal  = lipgloss.Color("#16213e") // modal/overlay bg
-	colorBgCard   = lipgloss.Color("#1e293b") // metric card bg
+// Backgrounds.
+const (
+	bgBase     = lipgloss.Color("#090D12")
+	bgSurface  = lipgloss.Color("#0D1117")
+	bgElevated = lipgloss.Color("#141B23")
+	bgBorder   = lipgloss.Color("#1C2433")
 )
 
+// Accent colors.
+const (
+	accentCyan    = lipgloss.Color("#00D4D4")
+	accentMagenta = lipgloss.Color("#C026D3")
+	accentGreen   = lipgloss.Color("#22C55E")
+	accentRed     = lipgloss.Color("#EF4444")
+	accentYellow  = lipgloss.Color("#EAB308")
+	accentOrange  = lipgloss.Color("#F97316")
+)
+
+// Text.
+const (
+	textPrimary   = lipgloss.Color("#E2E8F0")
+	textSecondary = lipgloss.Color("#64748B")
+	textDim       = lipgloss.Color("#334155")
+	textAccent    = lipgloss.Color("#00D4D4")
+)
+
+// Branch tag pill backgrounds.
+const (
+	tagFeature = lipgloss.Color("#0E7490")
+	tagRelease = lipgloss.Color("#14532D")
+	tagHotfix  = lipgloss.Color("#7F1D1D")
+	tagMain    = lipgloss.Color("#1E293B")
+)
+
+// Branch tag pill foregrounds.
+const (
+	tagFeatureFg = lipgloss.Color("#67E8F9")
+	tagReleaseFg = lipgloss.Color("#86EFAC")
+	tagHotfixFg  = lipgloss.Color("#FCA5A5")
+	tagMainFg    = lipgloss.Color("#94A3B8")
+)
+
+// ── Style structs ────────────────────────────────────────────────────────────
+
 type uiStyles struct {
-	root              lipgloss.Style
-	title             lipgloss.Style
-	panel             lipgloss.Style
-	panelFocused      lipgloss.Style
-	panelTitle        lipgloss.Style
-	panelTitleFocused lipgloss.Style
-	statusNormal      lipgloss.Style
-	statusError       lipgloss.Style
-	help              lipgloss.Style
-	loading           lipgloss.Style
-	badge             badgeStyles
-	diff              diffStyles
-	modalBackdrop     lipgloss.Style
-	navbar            navbarStyles
-	header            headerStyles
-	card              cardStyles
+	root         lipgloss.Style
+	panel        lipgloss.Style
+	panelFocused lipgloss.Style
+	sectionTitle lipgloss.Style
+	statusNormal lipgloss.Style
+	statusError  lipgloss.Style
+	help         lipgloss.Style
+	loading      lipgloss.Style
+
+	badge  badgeStyles
+	diff   diffStyles
+	navbar navbarStyles
+	header headerStyles
+	card   cardStyles
+	row    rowStyles
 }
 
 type badgeStyles struct {
@@ -82,144 +104,93 @@ type headerStyles struct {
 	label  lipgloss.Style
 	branch lipgloss.Style
 	sync   lipgloss.Style
+	sep    lipgloss.Style
 }
 
 type cardStyles struct {
 	box   lipgloss.Style
 	label lipgloss.Style
 	value lipgloss.Style
+	sub   lipgloss.Style
+}
+
+type rowStyles struct {
+	normal   lipgloss.Style
+	selected lipgloss.Style
+}
+
+func defaultBadgeStyles() badgeStyles {
+	return badgeStyles{
+		main: lipgloss.NewStyle().
+			Background(tagMain).Foreground(tagMainFg).Padding(0, 1).Bold(true),
+		develop:   lipgloss.NewStyle().Foreground(accentCyan).Bold(true),
+		feature:   lipgloss.NewStyle().Background(tagFeature).Foreground(tagFeatureFg).Padding(0, 1).Bold(true),
+		release:   lipgloss.NewStyle().Background(tagRelease).Foreground(tagReleaseFg).Padding(0, 1).Bold(true),
+		hotfix:    lipgloss.NewStyle().Background(tagHotfix).Foreground(tagHotfixFg).Padding(0, 1).Bold(true),
+		unknown:   lipgloss.NewStyle().Foreground(textSecondary),
+		staged:    lipgloss.NewStyle().Foreground(accentGreen).Bold(true),
+		unstaged:  lipgloss.NewStyle().Foreground(accentOrange).Bold(true),
+		untracked: lipgloss.NewStyle().Foreground(textDim),
+		both:      lipgloss.NewStyle().Foreground(accentOrange).Bold(true),
+		ahead:     lipgloss.NewStyle().Foreground(accentGreen),
+		behind:    lipgloss.NewStyle().Foreground(accentOrange),
+		ai:        lipgloss.NewStyle().Foreground(accentMagenta).Bold(true),
+		syncOK:    lipgloss.NewStyle().Background(accentGreen).Foreground(bgBase).Bold(true).Padding(0, 1),
+		urgent:    lipgloss.NewStyle().Background(accentRed).Foreground(bgBase).Bold(true).Padding(0, 1),
+		inProg:    lipgloss.NewStyle().Background(accentCyan).Foreground(bgBase).Bold(true).Padding(0, 1),
+		readyPR:   lipgloss.NewStyle().Background(accentMagenta).Foreground(bgBase).Bold(true).Padding(0, 1),
+	}
 }
 
 func defaultStyles() uiStyles {
 	return uiStyles{
-		root: lipgloss.NewStyle().Padding(0, 0),
+		root:         lipgloss.NewStyle().Background(bgBase).Foreground(textPrimary),
+		panel:        lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(bgBorder),
+		panelFocused: lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(accentCyan),
+		sectionTitle: lipgloss.NewStyle().Foreground(textSecondary).Bold(true),
+		statusNormal: lipgloss.NewStyle().Foreground(textPrimary),
+		statusError:  lipgloss.NewStyle().Foreground(accentRed).Bold(true),
+		help:         lipgloss.NewStyle().Foreground(textSecondary),
+		loading:      lipgloss.NewStyle().Foreground(accentMagenta).Bold(true),
 
-		title: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(colorCyan).
-			Background(colorBgHeader).
-			Padding(0, 1),
-
-		panel: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorDim),
-
-		panelFocused: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorCyan),
-
-		panelTitle: lipgloss.NewStyle().
-			Foreground(colorMuted).
-			Bold(false),
-
-		panelTitleFocused: lipgloss.NewStyle().
-			Foreground(colorCyan).
-			Bold(true),
-
-		statusNormal: lipgloss.NewStyle().
-			Foreground(colorFg),
-
-		statusError: lipgloss.NewStyle().
-			Foreground(colorRed).
-			Bold(true),
-
-		help: lipgloss.NewStyle().
-			Foreground(colorMuted),
-
-		loading: lipgloss.NewStyle().
-			Foreground(colorMagenta).
-			Bold(true),
-
-		modalBackdrop: lipgloss.NewStyle().
-			Background(colorBgModal).
-			Foreground(colorFgBold),
-
-		badge: badgeStyles{
-			main:      lipgloss.NewStyle().Foreground(colorYellow).Bold(true),
-			develop:   lipgloss.NewStyle().Foreground(colorCyan).Bold(true),
-			feature:   lipgloss.NewStyle().Foreground(colorBlue).Bold(true),
-			release:   lipgloss.NewStyle().Foreground(colorGreen).Bold(true),
-			hotfix:    lipgloss.NewStyle().Foreground(colorRed).Bold(true),
-			unknown:   lipgloss.NewStyle().Foreground(colorMuted),
-			staged:    lipgloss.NewStyle().Foreground(colorGreen).Bold(true),
-			unstaged:  lipgloss.NewStyle().Foreground(colorOrange).Bold(true),
-			untracked: lipgloss.NewStyle().Foreground(colorFgDim),
-			both:      lipgloss.NewStyle().Foreground(colorOrange).Bold(true),
-			ahead:     lipgloss.NewStyle().Foreground(colorGreen),
-			behind:    lipgloss.NewStyle().Foreground(colorOrange),
-			ai:        lipgloss.NewStyle().Foreground(colorPurple).Bold(true),
-
-			syncOK: lipgloss.NewStyle().
-				Foreground(colorBg).
-				Background(colorGreen).
-				Bold(true).
-				Padding(0, 1),
-			urgent: lipgloss.NewStyle().
-				Foreground(colorBg).
-				Background(colorRed).
-				Bold(true).
-				Padding(0, 1),
-			inProg: lipgloss.NewStyle().
-				Foreground(colorBg).
-				Background(colorCyan).
-				Bold(true).
-				Padding(0, 1),
-			readyPR: lipgloss.NewStyle().
-				Foreground(colorBg).
-				Background(colorMagenta).
-				Bold(true).
-				Padding(0, 1),
-		},
+		badge: defaultBadgeStyles(),
 
 		diff: diffStyles{
-			added:   lipgloss.NewStyle().Foreground(colorGreen),
-			removed: lipgloss.NewStyle().Foreground(colorRed),
-			hunk:    lipgloss.NewStyle().Foreground(colorCyan),
-			meta:    lipgloss.NewStyle().Bold(true).Foreground(colorFgBold),
+			added:   lipgloss.NewStyle().Foreground(accentGreen),
+			removed: lipgloss.NewStyle().Foreground(accentRed),
+			hunk:    lipgloss.NewStyle().Foreground(accentCyan),
+			meta:    lipgloss.NewStyle().Bold(true).Foreground(textPrimary),
 		},
 
 		navbar: navbarStyles{
-			active: lipgloss.NewStyle().
-				Foreground(colorBg).
-				Background(colorCyan).
-				Bold(true).
-				Padding(0, 1),
-			inactive: lipgloss.NewStyle().
-				Foreground(colorMuted).
-				Background(colorBgHeader).
-				Padding(0, 1),
-			bar: lipgloss.NewStyle().
-				Background(colorBgHeader).
-				Padding(0, 1),
+			active:   lipgloss.NewStyle().Foreground(bgBase).Background(accentCyan).Bold(true).Padding(0, 1),
+			inactive: lipgloss.NewStyle().Foreground(textSecondary).Padding(0, 1),
+			bar:      lipgloss.NewStyle().Background(bgSurface),
 		},
 
 		header: headerStyles{
-			bar: lipgloss.NewStyle().
-				Background(colorBgHeader).
-				Foreground(colorFg).
-				Padding(0, 1),
-			label: lipgloss.NewStyle().
-				Foreground(colorCyan).
-				Bold(true),
-			branch: lipgloss.NewStyle().
-				Foreground(colorFgBold).
-				Bold(true),
-			sync: lipgloss.NewStyle().
-				Foreground(colorGreen).
-				Bold(true),
+			bar:    lipgloss.NewStyle().Background(bgSurface).Foreground(textPrimary).Padding(0, 1),
+			label:  lipgloss.NewStyle().Foreground(accentCyan).Bold(true),
+			branch: lipgloss.NewStyle().Foreground(textPrimary).Bold(true),
+			sync:   lipgloss.NewStyle().Foreground(accentGreen).Bold(true),
+			sep:    lipgloss.NewStyle().Foreground(textDim),
 		},
 
 		card: cardStyles{
-			box: lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(colorDim).
-				Padding(0, 1),
-			label: lipgloss.NewStyle().
-				Foreground(colorFgDim).
-				Bold(false),
-			value: lipgloss.NewStyle().
-				Foreground(colorFgBold).
-				Bold(true),
+			box: lipgloss.NewStyle().Background(bgSurface).
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(bgBorder).Padding(0, 1),
+			label: lipgloss.NewStyle().Foreground(textSecondary),
+			value: lipgloss.NewStyle().Foreground(textPrimary).Bold(true),
+			sub:   lipgloss.NewStyle().Foreground(textSecondary),
+		},
+
+		row: rowStyles{
+			normal: lipgloss.NewStyle().Foreground(textPrimary).PaddingLeft(1),
+			selected: lipgloss.NewStyle().Background(bgElevated).
+				Foreground(textPrimary).Bold(true).PaddingLeft(0).
+				BorderLeft(true).BorderStyle(lipgloss.ThickBorder()).
+				BorderForeground(accentCyan),
 		},
 	}
 }

@@ -7,21 +7,20 @@ import (
 )
 
 // colorizeDiff applies ANSI colour to a unified diff string.
-// It honours the shared colour palette defined in styles.go.
 func colorizeDiff(raw string, maxWidth int) string {
 	if strings.TrimSpace(raw) == "" {
-		return lipgloss.NewStyle().Foreground(colorMuted).Render("No diff")
+		return lipgloss.NewStyle().Foreground(textSecondary).Render("No diff")
 	}
 	if maxWidth <= 0 {
 		maxWidth = 120
 	}
 
-	added := lipgloss.NewStyle().Foreground(colorGreen)
-	removed := lipgloss.NewStyle().Foreground(colorRed)
-	hunk := lipgloss.NewStyle().Foreground(colorCyan)
-	meta := lipgloss.NewStyle().Bold(true).Foreground(colorFgBold)
-	wordAdd := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
-	wordDel := lipgloss.NewStyle().Foreground(colorRed).Bold(true)
+	added := lipgloss.NewStyle().Foreground(accentGreen)
+	removed := lipgloss.NewStyle().Foreground(accentRed)
+	hunk := lipgloss.NewStyle().Foreground(accentCyan)
+	meta := lipgloss.NewStyle().Bold(true).Foreground(textPrimary)
+	wordAdd := lipgloss.NewStyle().Foreground(accentGreen).Bold(true)
+	wordDel := lipgloss.NewStyle().Foreground(accentRed).Bold(true)
 
 	lines := strings.Split(raw, "\n")
 	for i, line := range lines {
