@@ -6,44 +6,44 @@ import "github.com/charmbracelet/lipgloss"
 
 // Backgrounds.
 const (
-	bgBase     = lipgloss.Color("#090D12")
+	bgBase     = lipgloss.Color("#0A0E14")
 	bgSurface  = lipgloss.Color("#0D1117")
-	bgElevated = lipgloss.Color("#141B23")
-	bgBorder   = lipgloss.Color("#1C2433")
+	bgElevated = lipgloss.Color("#161B22")
+	bgBorder   = lipgloss.Color("#21262D")
 )
 
 // Accent colors.
 const (
-	accentCyan    = lipgloss.Color("#00D4D4")
-	accentMagenta = lipgloss.Color("#C026D3")
-	accentGreen   = lipgloss.Color("#22C55E")
-	accentRed     = lipgloss.Color("#EF4444")
-	accentYellow  = lipgloss.Color("#EAB308")
-	accentOrange  = lipgloss.Color("#F97316")
+	accentCyan    = lipgloss.Color("#39D5CE")
+	accentMagenta = lipgloss.Color("#D45BFF")
+	accentGreen   = lipgloss.Color("#3FB950")
+	accentRed     = lipgloss.Color("#F85149")
+	accentYellow  = lipgloss.Color("#D29922")
+	accentOrange  = lipgloss.Color("#F0883E")
 )
 
 // Text.
 const (
-	textPrimary   = lipgloss.Color("#E2E8F0")
-	textSecondary = lipgloss.Color("#64748B")
-	textDim       = lipgloss.Color("#334155")
-	textAccent    = lipgloss.Color("#00D4D4")
+	textPrimary   = lipgloss.Color("#CDD9E5")
+	textSecondary = lipgloss.Color("#768390")
+	textDim       = lipgloss.Color("#444C56")
+	textAccent    = lipgloss.Color("#39D5CE")
 )
 
 // Branch tag pill backgrounds.
 const (
-	tagFeature = lipgloss.Color("#0E7490")
-	tagRelease = lipgloss.Color("#14532D")
-	tagHotfix  = lipgloss.Color("#7F1D1D")
-	tagMain    = lipgloss.Color("#1E293B")
+	tagFeature = lipgloss.Color("#0D4A6E")
+	tagRelease = lipgloss.Color("#0B3A1C")
+	tagHotfix  = lipgloss.Color("#5C1D1D")
+	tagMain    = lipgloss.Color("#1C2128")
 )
 
 // Branch tag pill foregrounds.
 const (
-	tagFeatureFg = lipgloss.Color("#67E8F9")
-	tagReleaseFg = lipgloss.Color("#86EFAC")
-	tagHotfixFg  = lipgloss.Color("#FCA5A5")
-	tagMainFg    = lipgloss.Color("#94A3B8")
+	tagFeatureFg = lipgloss.Color("#79C0FF")
+	tagReleaseFg = lipgloss.Color("#56D364")
+	tagHotfixFg  = lipgloss.Color("#FF7B72")
+	tagMainFg    = lipgloss.Color("#8B949E")
 )
 
 // ── Style structs ────────────────────────────────────────────────────────────
@@ -145,8 +145,8 @@ func defaultBadgeStyles() badgeStyles {
 func defaultStyles() uiStyles {
 	return uiStyles{
 		root:         lipgloss.NewStyle().Background(bgBase).Foreground(textPrimary),
-		panel:        lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(bgBorder),
-		panelFocused: lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(accentCyan),
+		panel:        lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(bgBorder),
+		panelFocused: lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(accentCyan),
 		sectionTitle: lipgloss.NewStyle().Foreground(textSecondary).Bold(true),
 		statusNormal: lipgloss.NewStyle().Foreground(textPrimary),
 		statusError:  lipgloss.NewStyle().Foreground(accentRed).Bold(true),
@@ -178,7 +178,7 @@ func defaultStyles() uiStyles {
 
 		card: cardStyles{
 			box: lipgloss.NewStyle().Background(bgSurface).
-				Border(lipgloss.NormalBorder()).
+				Border(lipgloss.RoundedBorder()).
 				BorderForeground(bgBorder).Padding(0, 1),
 			label: lipgloss.NewStyle().Foreground(textSecondary),
 			value: lipgloss.NewStyle().Foreground(textPrimary).Bold(true),

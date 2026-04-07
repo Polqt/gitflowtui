@@ -203,11 +203,11 @@ func newPanelList() list.Model {
 	delegate.ShowDescription = false
 	delegate.SetSpacing(0)
 	delegate.Styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(textPrimary).
+		Foreground(textSecondary).
 		PaddingLeft(1)
 	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
 		Background(bgElevated).
-		Foreground(textPrimary).
+		Foreground(accentCyan).
 		Bold(true).
 		PaddingLeft(0).
 		BorderLeft(true).

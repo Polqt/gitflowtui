@@ -89,9 +89,9 @@ func branchStatusBadge(b git.Branch, kind gitflow.BranchKind, st uiStyles) strin
 	case b.IsHead && b.Ahead > 0:
 		return st.badge.readyPR.Render("STAGED")
 	case b.IsHead:
-		return st.badge.inProg.Render("IN_PROGRESS")
+		return st.badge.inProg.Render("IN PROGRESS")
 	case b.Ahead > 0:
-		return st.badge.readyPR.Render("READY_FOR_PR")
+		return st.badge.readyPR.Render("READY PR")
 	default:
 		return ""
 	}
