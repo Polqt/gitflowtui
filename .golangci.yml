@@ -26,6 +26,10 @@ linters:
   disable:
     # TODO code style-confirm whether to disable permanently: import dependency policy is not defined for this repo yet.
     - depguard
+    # Replaced by gomodguard_v2 (v2.12.0+)
+    - gomodguard
+  enable:
+    - gomodguard_v2
     # TODO critical bugs-suggest fix: existing error construction should be standardized deliberately, not auto-edited by config rollout.
     - err113
     # TODO code style-confirm whether to disable permanently: requiring every struct field in literals is too strict for current code.
