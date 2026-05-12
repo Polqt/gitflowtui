@@ -28,6 +28,11 @@ const (
 	// streamBufSize is the channel buffer for streaming tokens.
 	// Large enough to absorb burst writes without blocking the HTTP goroutine.
 	streamBufSize = 64
+
+	// Role constants for API messages.
+	roleUser       = "user"
+	roleAssistant  = "assistant"
+	roleSystem     = "system"
 )
 
 type completionClient interface {
@@ -164,7 +169,7 @@ func (c *anthropicClient) complete(ctx context.Context, system, prompt string, m
 		Model:     c.model,
 		MaxTokens: maxTokens,
 		System:    system,
-		Messages:  []apiMessage{{Role: "user", Content: prompt}},
+		Messages:  []apiMessage{{Role: roleUser, Content: prompt}},
 	})
 	if err != nil {
 		return "", fmt.Errorf("marshal request: %w", err)
@@ -223,7 +228,7 @@ func (c *anthropicClient) stream(ctx context.Context, system, prompt string, max
 			Model:     c.model,
 			MaxTokens: maxTokens,
 			System:    system,
-			Messages:  []apiMessage{{Role: "user", Content: prompt}},
+			Messages:  []apiMessage{{Role: roleUser, Content: prompt}},
 			Stream:    true,
 		})
 		if err != nil {
@@ -411,9 +416,9 @@ func (c *ollamaClient) stream(ctx context.Context, system, prompt string, maxTok
 func (c *ollamaClient) newRequest(ctx context.Context, system, prompt string, stream bool) (*http.Request, error) {
 	messages := make([]apiMessage, 0, 2)
 	if strings.TrimSpace(system) != "" {
-		messages = append(messages, apiMessage{Role: "system", Content: system})
+		messages = append(messages, apiMessage{Role: roleSystem, Content: system})
 	}
-	messages = append(messages, apiMessage{Role: "user", Content: prompt})
+	messages = append(messages, apiMessage{Role: roleUser, Content: prompt})
 
 	payload, err := json.Marshal(ollamaRequest{
 		Model:    c.model,
