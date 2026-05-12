@@ -6,6 +6,22 @@ When `gitflow-tui` is open, it automatically starts a tiny background server on 
 
 The reason it exists is simple: other programs on your machine can connect to this address and receive live updates about what is happening in your repository. That makes it possible to build browser dashboards, IDE integrations, small helper scripts, or automation that reacts instantly while you work. This is already running. You do not start it. You do not configure it. It is just there.
 
+For deployment or IDE integration that should keep running after the TUI exits, use headless server mode:
+
+```bash
+gitflow-tui serve --repo /path/to/repository --addr 127.0.0.1:7373 --path ws
+```
+
+Headless mode polls the repository and broadcasts `snapshot` events every 2 seconds by default. Change the interval with:
+
+```bash
+gitflow-tui serve --repo /path/to/repository --interval 5s
+```
+
+In Git Bash on Windows, prefer `--path ws` instead of `--path /ws`. Git Bash can rewrite slash-prefixed arguments into Windows paths; `gitflow-tui` normalizes `ws` to `/ws` internally.
+
+Do not bind this server to a public interface unless you add network-level authentication such as VPN, SSH tunnel, or an authenticated reverse proxy. The stream includes repository paths, branch names, file status, commit subjects, and stash metadata.
+
 ## What Events Are Sent
 
 ### `branch.changed`
@@ -213,7 +229,7 @@ PY
 
 ## How To Disable It
 
-Set `GITFLOW_TUI_WS_DISABLE=1` before running:
+Set `GITFLOW_TUI_WS_DISABLE=1` before running the interactive TUI:
 
 Windows:
 
@@ -226,6 +242,8 @@ Mac/Linux:
 ```bash
 GITFLOW_TUI_WS_DISABLE=1 gitflow-tui
 ```
+
+This does not affect `gitflow-tui serve`; that command is explicitly the WebSocket server.
 
 ## How To Change The Port
 

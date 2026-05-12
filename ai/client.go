@@ -17,13 +17,12 @@ import (
 const (
 	anthropicEndpoint = "https://api.anthropic.com/v1/messages"
 	anthropicVersion  = "2023-06-01"
-	ollamaChatURL     = "http://localhost:11434/api/chat"
-	ollamaTagsURL     = "http://localhost:11434/api/tags"
+	defaultOllamaURL  = "http://127.0.0.1:11434"
 
 	// DefaultModel is the model used for Anthropic calls.
 	DefaultModel = "claude-sonnet-4-20250514"
 	// DefaultOllamaModel is the default free local model for Ollama.
-	DefaultOllamaModel = "llama3"
+	DefaultOllamaModel = "qwen2.5-coder:1.5b"
 
 	defaultMaxTokens = 2048
 	// streamBufSize is the channel buffer for streaming tokens.
@@ -85,6 +84,7 @@ type anthropicClient struct {
 }
 
 type ollamaClient struct {
+	baseURL    string
 	model      string
 	httpClient *http.Client
 }
@@ -105,7 +105,8 @@ func newAnthropicClient(apiKey, model string) *anthropicClient {
 	}
 }
 
-func newOllamaClient(model string) *ollamaClient {
+func newOllamaClient(baseURL, model string) *ollamaClient {
+	baseURL = normalizeOllamaBaseURL(baseURL)
 	model = strings.TrimSpace(model)
 	if model == "" {
 		model = strings.TrimSpace(os.Getenv("GITFLOW_TUI_OLLAMA_MODEL"))
@@ -114,20 +115,33 @@ func newOllamaClient(model string) *ollamaClient {
 		model = DefaultOllamaModel
 	}
 	return &ollamaClient{
-		model: model,
+		baseURL: baseURL,
+		model:   model,
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
 		},
 	}
 }
 
-func ollamaReachable(ctx context.Context) bool {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ollamaTagsURL, nil)
+func normalizeOllamaBaseURL(baseURL string) string {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		baseURL = strings.TrimSpace(os.Getenv("GITFLOW_TUI_OLLAMA_BASE_URL"))
+	}
+	if baseURL == "" {
+		baseURL = defaultOllamaURL
+	}
+	return strings.TrimRight(baseURL, "/")
+}
+
+func ollamaReachable(ctx context.Context, baseURL string) bool {
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, normalizeOllamaBaseURL(baseURL)+"/api/tags", nil)
 	if err != nil {
 		return false
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return false
 	}
@@ -410,7 +424,7 @@ func (c *ollamaClient) newRequest(ctx context.Context, system, prompt string, st
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ollamaChatURL, bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/chat", bytes.NewReader(payload))
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}

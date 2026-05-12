@@ -25,7 +25,8 @@ gitflow-tui /path/to/repo
 | `GITFLOW_TUI_WS_ADDR` | `127.0.0.1:7373` | WebSocket address and port |
 | `GITFLOW_TUI_WS_PATH` | `/ws` | WebSocket URL path |
 | `ANTHROPIC_API_KEY` | `(unset)` | Anthropic API key for AI features |
-| `GITFLOW_TUI_OLLAMA_MODEL` | `llama3` | Ollama model for free AI features |
+| `GITFLOW_TUI_OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Ollama API base URL |
+| `GITFLOW_TUI_OLLAMA_MODEL` | `qwen2.5-coder:1.5b` | Ollama model for free AI features |
 
 ## Setting Environment Variables
 
@@ -38,7 +39,7 @@ $env:GITFLOW_TUI_MAIN="main"
 $env:GITFLOW_TUI_DEVELOP="develop"
 $env:GITFLOW_TUI_REMOTE="origin"
 $env:ANTHROPIC_API_KEY="sk-ant-..."
-$env:GITFLOW_TUI_OLLAMA_MODEL="llama3"
+$env:GITFLOW_TUI_OLLAMA_MODEL="qwen2.5-coder:1.5b"
 gitflow-tui
 ```
 
@@ -59,7 +60,7 @@ export GITFLOW_TUI_MAIN="main"
 export GITFLOW_TUI_DEVELOP="develop"
 export GITFLOW_TUI_REMOTE="origin"
 export ANTHROPIC_API_KEY="sk-ant-..."
-export GITFLOW_TUI_OLLAMA_MODEL="llama3"
+export GITFLOW_TUI_OLLAMA_MODEL="qwen2.5-coder:1.5b"
 gitflow-tui
 ```
 

@@ -11,6 +11,7 @@ type Config struct {
 	WSAddr        string
 	WSPath        string
 	AIKey         string
+	OllamaBaseURL string
 	OllamaModel   string
 }
 
@@ -50,6 +51,7 @@ func Load() Config {
 	}
 
 	cfg.AIKey = os.Getenv("ANTHROPIC_API_KEY")
+	cfg.OllamaBaseURL = os.Getenv("GITFLOW_TUI_OLLAMA_BASE_URL")
 	cfg.OllamaModel = os.Getenv("GITFLOW_TUI_OLLAMA_MODEL")
 
 	return cfg

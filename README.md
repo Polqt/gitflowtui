@@ -54,8 +54,8 @@ go run ./cmd/gitflow-tui /path/to/any/git/repository
 AI features work with two backends — pick whichever is free for you:
 
 **Option A — Ollama (completely free, runs on your machine)**
-1. Install from https://ollama.ai (Windows, Mac, Linux)
-2. Run: `ollama pull llama3`
+1. Install from https://ollama.com (Windows, Mac, Linux)
+2. Run: `ollama pull qwen2.5-coder:1.5b`
 3. Start gitflow-tui — AI activates automatically, no config needed
 
 **Option B — Anthropic API (free tier available)**
@@ -80,6 +80,12 @@ GITFLOW_TUI_WS_ADDR=127.0.0.1:7777 GITFLOW_TUI_WS_PATH=/ws gitflow-tui [path-to-
 ```
 
 The server sends JSON events for notifications and repository snapshots whenever the UI refreshes.
+
+For a deployable headless server that keeps running without the TUI:
+
+```bash
+gitflow-tui serve --repo /path/to/repo --addr 127.0.0.1:7373 --path ws
+```
 
 Minimal client example:
 

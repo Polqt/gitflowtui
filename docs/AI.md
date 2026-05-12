@@ -6,12 +6,12 @@
 
 Step by step:
 
-1. Go to https://ollama.ai and click Download
+1. Go to https://ollama.com and click Download
 2. Install it like any normal app (Windows installer, Mac .dmg, Linux script)
 3. Open a terminal and run:
 
 ```bash
-ollama pull llama3
+ollama pull qwen2.5-coder:1.5b
 ```
 
 This downloads a 4GB AI model once, stored on your machine.

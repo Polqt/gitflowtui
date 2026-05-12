@@ -29,8 +29,13 @@ func New(apiKey string) *Advisor {
 
 // NewWithOptions creates an Advisor with explicit Ollama model override.
 // Pass an empty ollamaModel to use the GITFLOW_TUI_OLLAMA_MODEL env var or the
-// default ("llama3").
+// default ("qwen2.5-coder:1.5b").
 func NewWithOptions(apiKey, ollamaModel string) *Advisor {
+	return NewWithConfig(apiKey, "", ollamaModel)
+}
+
+// NewWithConfig creates an Advisor with explicit Ollama endpoint and model overrides.
+func NewWithConfig(apiKey, ollamaBaseURL, ollamaModel string) *Advisor {
 	if apiKey == "" {
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
 	}
@@ -48,8 +53,8 @@ func NewWithOptions(apiKey, ollamaModel string) *Advisor {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
-	if ollamaReachable(ctx) {
-		advisor.client = newOllamaClient(ollamaModel)
+	if ollamaReachable(ctx, ollamaBaseURL) {
+		advisor.client = newOllamaClient(ollamaBaseURL, ollamaModel)
 		advisor.Backend = "ollama"
 	}
 
