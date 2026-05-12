@@ -30,9 +30,9 @@ const (
 	streamBufSize = 64
 
 	// Role constants for API messages.
-	roleUser       = "user"
-	roleAssistant  = "assistant"
-	roleSystem     = "system"
+	roleUser      = "user"
+	roleAssistant = "assistant"
+	roleSystem    = "system"
 )
 
 type completionClient interface {
