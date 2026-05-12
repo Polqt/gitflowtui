@@ -47,7 +47,7 @@ func NewWithConfig(apiKey, ollamaBaseURL, ollamaModel string) *Advisor {
 
 	if client := newAnthropicClient(apiKey, DefaultModel); client != nil {
 		advisor.client = client
-		advisor.Backend = "anthropic"
+		advisor.Backend = backendAnthropic
 		return advisor
 	}
 
@@ -55,7 +55,7 @@ func NewWithConfig(apiKey, ollamaBaseURL, ollamaModel string) *Advisor {
 	defer cancel()
 	if ollamaReachable(ctx, ollamaBaseURL) {
 		advisor.client = newOllamaClient(ollamaBaseURL, ollamaModel)
-		advisor.Backend = "ollama"
+		advisor.Backend = backendOllama
 	}
 
 	return advisor

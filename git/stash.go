@@ -70,7 +70,7 @@ func (r *Repo) stashDiff(ctx context.Context, ref string, wordDiff bool) (string
 	if strings.TrimSpace(ref) == "" {
 		ref = "stash@{0}"
 	}
-	args := []string{"stash", "show", "-p", "--no-color"}
+	args := []string{"stash", "show", "-p", gitNoColor}
 	if wordDiff {
 		args = append(args, "--word-diff=plain")
 	}

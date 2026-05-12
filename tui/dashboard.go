@@ -16,6 +16,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const (
+	branchPrefixFeature = "feature/"
+	branchPrefixFeat    = "feat/"
+	branchPrefixRelease = "release/"
+	branchPrefixHotfix  = "hotfix/"
+)
+
 type logMsg struct {
 	branch  string
 	commits []git.Commit
@@ -1026,9 +1033,9 @@ func (a *App) renderNavbar(width int) string {
 		label  string
 		active bool
 	}{
-		{"F", "Feature", strings.HasPrefix(a.currentBranch, "feature/") || strings.HasPrefix(a.currentBranch, "feat/")},
-		{"R", "Release", strings.HasPrefix(a.currentBranch, "release/")},
-		{"H", "Hotfix", strings.HasPrefix(a.currentBranch, "hotfix/")},
+		{"F", "Feature", strings.HasPrefix(a.currentBranch, branchPrefixFeature) || strings.HasPrefix(a.currentBranch, branchPrefixFeat)},
+		{"R", "Release", strings.HasPrefix(a.currentBranch, branchPrefixRelease)},
+		{"H", "Hotfix", strings.HasPrefix(a.currentBranch, branchPrefixHotfix)},
 		{"S", "Sync", false},
 		{"Q", "Quit", false},
 	}
@@ -1400,9 +1407,9 @@ func (a *App) aiBranchHealthCmd() tea.Cmd {
 
 func (a *App) mergeRiskTarget() (string, bool) {
 	switch {
-	case strings.HasPrefix(a.currentBranch, "feature/"), strings.HasPrefix(a.currentBranch, "feat/"):
+	case strings.HasPrefix(a.currentBranch, branchPrefixFeature), strings.HasPrefix(a.currentBranch, branchPrefixFeat):
 		return a.cfg.DevelopBranch, true
-	case strings.HasPrefix(a.currentBranch, "release/"), strings.HasPrefix(a.currentBranch, "hotfix/"):
+	case strings.HasPrefix(a.currentBranch, branchPrefixRelease), strings.HasPrefix(a.currentBranch, branchPrefixHotfix):
 		return a.cfg.MainBranch, true
 	default:
 		return "", false

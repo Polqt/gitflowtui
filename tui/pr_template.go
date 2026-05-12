@@ -14,6 +14,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const (
+	prFeaturePrefix = "feature/"
+	prFeatPrefix    = "feat/"
+	prReleasePrefix = "release/"
+	prHotfixPrefix  = "hotfix/"
+)
+
 type prTemplateForm struct {
 	active bool
 	action finishAction
@@ -223,14 +230,15 @@ func defaultPRTitle(source string) string {
 	if s == "" {
 		return "feat: summary"
 	}
-	if strings.HasPrefix(s, "feature/") || strings.HasPrefix(s, "feat/") {
-		return "feat: " + strings.ReplaceAll(strings.TrimPrefix(strings.TrimPrefix(s, "feature/"), "feat/"), "-", " ")
+	if strings.HasPrefix(s, prFeaturePrefix) || strings.HasPrefix(s, prFeatPrefix) {
+		name := strings.TrimPrefix(strings.TrimPrefix(s, prFeaturePrefix), prFeatPrefix)
+		return "feat: " + strings.ReplaceAll(name, "-", " ")
 	}
-	if strings.HasPrefix(s, "release/") {
-		return "release: " + strings.TrimPrefix(s, "release/")
+	if strings.HasPrefix(s, prReleasePrefix) {
+		return "release: " + strings.TrimPrefix(s, prReleasePrefix)
 	}
-	if strings.HasPrefix(s, "hotfix/") {
-		return "hotfix: " + strings.TrimPrefix(s, "hotfix/")
+	if strings.HasPrefix(s, prHotfixPrefix) {
+		return "hotfix: " + strings.TrimPrefix(s, prHotfixPrefix)
 	}
 	return "feat: " + s
 }

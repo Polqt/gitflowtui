@@ -2,6 +2,12 @@ package config
 
 import "os"
 
+const (
+	defaultMainBranch    = "main"
+	defaultDevelopBranch = "develop"
+	defaultWSPath        = "/ws"
+)
+
 // Config contains runtime settings for the TUI.
 type Config struct {
 	MainBranch    string
@@ -17,12 +23,12 @@ type Config struct {
 
 func Default() Config {
 	return Config{
-		MainBranch:    "main",
-		DevelopBranch: "develop",
+		MainBranch:    defaultMainBranch,
+		DevelopBranch: defaultDevelopBranch,
 		RemoteName:    "origin",
 		LogLimit:      80,
 		WSAddr:        "127.0.0.1:7373",
-		WSPath:        "/ws",
+		WSPath:        defaultWSPath,
 	}
 }
 

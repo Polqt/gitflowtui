@@ -10,6 +10,12 @@ import (
 	"github.com/Polqt/gitflowtui/tui"
 )
 
+const (
+	testWSPath     = "/ws"
+	testEventsPath = "/events"
+	testStatusType = "status"
+)
+
 func TestNewServer_NormalizesPathInURL(t *testing.T) {
 	t.Parallel()
 
@@ -18,9 +24,9 @@ func TestNewServer_NormalizesPathInURL(t *testing.T) {
 		in   string
 		want string
 	}{
-		{name: "empty defaults", in: "", want: "/ws"},
-		{name: "spaces defaults", in: "   ", want: "/ws"},
-		{name: "already rooted", in: "/events", want: "/events"},
+		{name: "empty defaults", in: "", want: testWSPath},
+		{name: "spaces defaults", in: "   ", want: testWSPath},
+		{name: "already rooted", in: testEventsPath, want: testEventsPath},
 		{name: "without slash", in: "events", want: "/events"},
 	}
 
@@ -52,7 +58,7 @@ func TestNewServer_RejectsInvalidPath(t *testing.T) {
 func TestServerBroadcastsToConnectedClient(t *testing.T) {
 	t.Parallel()
 
-	server, err := realtime.NewServer("127.0.0.1:0", "/ws")
+	server, err := realtime.NewServer("127.0.0.1:0", testWSPath)
 	if err != nil {
 		t.Fatalf("NewServer returned error: %v", err)
 	}
@@ -76,7 +82,7 @@ func TestServerBroadcastsToConnectedClient(t *testing.T) {
 	}.Listen(ctx)
 
 	want := tui.RealtimeEvent{
-		Type:      "status",
+		Type:      testStatusType,
 		Timestamp: time.Now().UTC(),
 		RepoRoot:  "repo",
 		Branch:    "feature/ws",

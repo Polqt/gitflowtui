@@ -7,6 +7,13 @@ import (
 	"strings"
 )
 
+const (
+	branchMain    = "main"
+	branchDevelop = "develop"
+	branchFeature = "feature/"
+	branchFeat    = "feat/"
+)
+
 // BranchType is a UI-friendly branch classification.
 type BranchType int
 
@@ -109,11 +116,11 @@ func parseTracking(s string) (string, int, int) {
 
 func branchTypeFromName(name string) BranchType {
 	switch {
-	case name == "main" || name == "master":
+	case name == branchMain || name == "master":
 		return BranchTypeMain
-	case name == "develop":
+	case name == branchDevelop:
 		return BranchTypeDevelop
-	case strings.HasPrefix(name, "feature/") || strings.HasPrefix(name, "feat/"):
+	case strings.HasPrefix(name, branchFeature) || strings.HasPrefix(name, branchFeat):
 		return BranchTypeFeature
 	case strings.HasPrefix(name, "release/"):
 		return BranchTypeRelease

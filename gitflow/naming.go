@@ -59,7 +59,7 @@ func BuildFeatureBranch(raw string, cfg Config) (string, error) {
 	if slug == "" {
 		return "", fmt.Errorf("feature name cannot be empty")
 	}
-	prefix := "feature/"
+	prefix := defaultFeaturePrefix
 	if len(cfg.FeaturePrefixes) > 0 {
 		prefix = cfg.FeaturePrefixes[0]
 	}

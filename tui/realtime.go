@@ -6,6 +6,11 @@ import (
 	"github.com/Polqt/gitflowtui/ai"
 )
 
+const (
+	RealtimeEventSnapshot = "snapshot"
+	RealtimeEventStatus   = "status"
+)
+
 // AppOption configures optional App behavior.
 type AppOption func(*App)
 
@@ -147,7 +152,7 @@ func (a *App) publishSnapshot(s repoSnapshot) {
 	}
 
 	a.eventSink.Publish(RealtimeEvent{
-		Type:      "snapshot",
+		Type:      RealtimeEventSnapshot,
 		Timestamp: time.Now().UTC(),
 		RepoRoot:  a.repo.Root,
 		Branch:    s.CurrentBranch,
@@ -169,7 +174,7 @@ func (a *App) publishStatus(message string, isError bool) {
 		return
 	}
 	a.eventSink.Publish(RealtimeEvent{
-		Type:      "status",
+		Type:      RealtimeEventStatus,
 		Timestamp: time.Now().UTC(),
 		RepoRoot:  a.repo.Root,
 		Branch:    a.currentBranch,

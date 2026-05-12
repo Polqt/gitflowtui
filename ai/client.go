@@ -189,7 +189,7 @@ func (c *anthropicClient) complete(ctx context.Context, system, prompt string, m
 		return "", fmt.Errorf("decode response (status %d): %w", resp.StatusCode, err)
 	}
 	if result.Error != nil {
-		return "", &APIError{Backend: "anthropic", Type: result.Error.Type, Message: result.Error.Message}
+		return "", &APIError{Backend: backendAnthropic, Type: result.Error.Type, Message: result.Error.Message}
 	}
 	if len(result.Content) == 0 {
 		return "", errors.New("empty content in API response")
@@ -274,7 +274,7 @@ func (c *anthropicClient) stream(ctx context.Context, system, prompt string, max
 			}
 
 			if event.Error != nil {
-				errCh <- &APIError{Backend: "anthropic", Type: event.Error.Type, Message: event.Error.Message}
+				errCh <- &APIError{Backend: backendAnthropic, Type: event.Error.Type, Message: event.Error.Message}
 				return
 			}
 
@@ -321,7 +321,7 @@ func (c *ollamaClient) complete(ctx context.Context, system, prompt string, maxT
 			return "", fmt.Errorf("ollama status %d: read error body: %w", resp.StatusCode, readErr)
 		}
 		return "", &APIError{
-			Backend: "ollama",
+			Backend: backendOllama,
 			Type:    fmt.Sprintf("status_%d", resp.StatusCode),
 			Message: strings.TrimSpace(string(body)),
 		}
@@ -332,7 +332,7 @@ func (c *ollamaClient) complete(ctx context.Context, system, prompt string, maxT
 		return "", fmt.Errorf("decode response: %w", err)
 	}
 	if strings.TrimSpace(result.Error) != "" {
-		return "", &APIError{Backend: "ollama", Type: "request_failed", Message: result.Error}
+		return "", &APIError{Backend: backendOllama, Type: "request_failed", Message: result.Error}
 	}
 
 	return result.Message.Content, nil
@@ -368,7 +368,7 @@ func (c *ollamaClient) stream(ctx context.Context, system, prompt string, maxTok
 				return
 			}
 			errCh <- &APIError{
-				Backend: "ollama",
+				Backend: backendOllama,
 				Type:    fmt.Sprintf("status_%d", resp.StatusCode),
 				Message: strings.TrimSpace(string(body)),
 			}
@@ -383,7 +383,7 @@ func (c *ollamaClient) stream(ctx context.Context, system, prompt string, maxTok
 				return
 			}
 			if strings.TrimSpace(chunk.Error) != "" {
-				errCh <- &APIError{Backend: "ollama", Type: "request_failed", Message: chunk.Error}
+				errCh <- &APIError{Backend: backendOllama, Type: "request_failed", Message: chunk.Error}
 				return
 			}
 

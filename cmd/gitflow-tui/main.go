@@ -149,7 +149,7 @@ func runServe(args []string) error {
 	}()
 
 	server.Publish(tui.RealtimeEvent{
-		Type:      "status",
+		Type:      tui.RealtimeEventStatus,
 		Timestamp: time.Now().UTC(),
 		RepoRoot:  repo.Root,
 		Status: &tui.RealtimeStatusMsg{
@@ -176,7 +176,7 @@ func runServe(args []string) error {
 			if err := publishRepoSnapshot(ctx, server, repo, *logLimit); err != nil {
 				logger.Printf("snapshot failed: %v", err)
 				server.Publish(tui.RealtimeEvent{
-					Type:      "status",
+					Type:      tui.RealtimeEventStatus,
 					Timestamp: time.Now().UTC(),
 					RepoRoot:  repo.Root,
 					Status: &tui.RealtimeStatusMsg{
@@ -224,7 +224,7 @@ func publishRepoSnapshot(parent context.Context, server *realtime.Server, repo *
 	}
 
 	server.Publish(tui.RealtimeEvent{
-		Type:      "snapshot",
+		Type:      tui.RealtimeEventSnapshot,
 		Timestamp: time.Now().UTC(),
 		RepoRoot:  repo.Root,
 		Branch:    current,

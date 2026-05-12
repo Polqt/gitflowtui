@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const gitNoColor = "--no-color"
+
 func (r *Repo) Diff(ctx context.Context, ref string) (string, error) {
 	return r.diff(ctx, ref, false)
 }
@@ -15,7 +17,7 @@ func (r *Repo) DiffWord(ctx context.Context, ref string) (string, error) {
 }
 
 func (r *Repo) diff(ctx context.Context, ref string, wordDiff bool) (string, error) {
-	args := []string{"diff", "--no-color"}
+	args := []string{"diff", gitNoColor}
 	if wordDiff {
 		args = append(args, "--word-diff=plain")
 	}
@@ -38,7 +40,7 @@ func (r *Repo) DiffFileWord(ctx context.Context, path string, staged bool) (stri
 }
 
 func (r *Repo) diffFile(ctx context.Context, path string, staged bool, wordDiff bool) (string, error) {
-	args := []string{"diff", "--no-color"}
+	args := []string{"diff", gitNoColor}
 	if wordDiff {
 		args = append(args, "--word-diff=plain")
 	}

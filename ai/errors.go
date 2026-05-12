@@ -2,6 +2,11 @@ package ai
 
 import "errors"
 
+const (
+	backendAnthropic = "anthropic"
+	backendOllama    = "ollama"
+)
+
 // ErrNotAvailable is returned when no AI backend is available.
 var ErrNotAvailable = errors.New("AI advisor unavailable: set ANTHROPIC_API_KEY or install Ollama")
 

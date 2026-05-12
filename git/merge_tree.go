@@ -123,7 +123,7 @@ func (r *Repo) changedFileSet(ctx context.Context, base, ref string) (map[string
 // DiffRange returns the unified diff between two refs (base..head).
 // Used by the AI conflict analyser to provide per-file context.
 func (r *Repo) DiffRange(ctx context.Context, base, head string) (string, error) {
-	out, err := r.runGit(ctx, "diff", "--no-color", base, head)
+	out, err := r.runGit(ctx, "diff", gitNoColor, base, head)
 	if err != nil {
 		return "", fmt.Errorf("DiffRange %s..%s: %w", base, head, err)
 	}

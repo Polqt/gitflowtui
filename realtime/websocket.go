@@ -17,6 +17,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const defaultWSPath = "/ws"
+
 // Server broadcasts TUI events to websocket clients.
 type Server struct {
 	addr string
@@ -186,7 +188,7 @@ func (s *Server) logf(format string, args ...any) {
 func normalizePath(path string) (string, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return "/ws", nil
+		return defaultWSPath, nil
 	}
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path

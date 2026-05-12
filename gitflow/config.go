@@ -2,6 +2,15 @@ package gitflow
 
 import "regexp"
 
+const (
+	defaultMainBranch    = "main"
+	defaultDevelopBranch = "develop"
+	defaultFeaturePrefix = "feature/"
+	defaultFeatPrefix    = "feat/"
+	defaultReleasePrefix = "release/"
+	defaultHotfixPrefix  = "hotfix/"
+)
+
 type Config struct {
 	MainBranch      string
 	DevelopBranch   string
@@ -14,12 +23,12 @@ type Config struct {
 
 func DefaultConfig() Config {
 	return Config{
-		MainBranch:      "main",
-		DevelopBranch:   "develop",
+		MainBranch:      defaultMainBranch,
+		DevelopBranch:   defaultDevelopBranch,
 		RemoteName:      "origin",
-		FeaturePrefixes: []string{"feature/", "feat/"},
-		ReleasePrefix:   "release/",
-		HotfixPrefix:    "hotfix/",
+		FeaturePrefixes: []string{defaultFeaturePrefix, defaultFeatPrefix},
+		ReleasePrefix:   defaultReleasePrefix,
+		HotfixPrefix:    defaultHotfixPrefix,
 		TagPrefix:       "v",
 	}
 }

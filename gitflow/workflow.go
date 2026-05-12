@@ -21,22 +21,22 @@ type FinishResult struct {
 
 func New(repo *git.Repo, cfg Config) *Workflow {
 	if len(cfg.FeaturePrefixes) == 0 {
-		cfg.FeaturePrefixes = []string{"feature/", "feat/"}
+		cfg.FeaturePrefixes = []string{defaultFeaturePrefix, defaultFeatPrefix}
 	}
 	if cfg.MainBranch == "" {
-		cfg.MainBranch = "main"
+		cfg.MainBranch = defaultMainBranch
 	}
 	if cfg.DevelopBranch == "" {
-		cfg.DevelopBranch = "develop"
+		cfg.DevelopBranch = defaultDevelopBranch
 	}
 	if cfg.RemoteName == "" {
 		cfg.RemoteName = "origin"
 	}
 	if cfg.ReleasePrefix == "" {
-		cfg.ReleasePrefix = "release/"
+		cfg.ReleasePrefix = defaultReleasePrefix
 	}
 	if cfg.HotfixPrefix == "" {
-		cfg.HotfixPrefix = "hotfix/"
+		cfg.HotfixPrefix = defaultHotfixPrefix
 	}
 	if cfg.TagPrefix == "" {
 		cfg.TagPrefix = "v"

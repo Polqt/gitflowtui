@@ -1,3 +1,5 @@
+version: 2
+
 project_name: gitflow-tui
 
 before:
@@ -61,3 +63,5 @@ release:
     name: gitflowtui
   draft: false
   prerelease: auto
+  replace_existing_artifacts: true
+  mode: replace
