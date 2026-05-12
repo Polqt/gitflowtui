@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -832,14 +833,15 @@ func (a *App) renderBreadcrumb(width int) string {
 
 	var syncLabel string
 	var syncStyle lipgloss.Style
-	if a.behind > 0 {
-		syncLabel = fmt.Sprintf("↓ behind %d", a.behind)
+	switch {
+	case a.behind > 0:
+		syncLabel = fmt.Sprintf("behind %d", a.behind)
 		syncStyle = lipgloss.NewStyle().Foreground(accentOrange)
-	} else if a.ahead > 0 {
-		syncLabel = fmt.Sprintf("↑ ahead %d", a.ahead)
+	case a.ahead > 0:
+		syncLabel = fmt.Sprintf("ahead %d", a.ahead)
 		syncStyle = lipgloss.NewStyle().Foreground(accentCyan)
-	} else {
-		syncLabel = "✓ synced"
+	default:
+		syncLabel = "synced"
 		syncStyle = lipgloss.NewStyle().Foreground(accentGreen)
 	}
 	syncPill := syncStyle.Render(syncLabel)
@@ -890,7 +892,7 @@ func (a *App) renderStatsCards(totalW int) string {
 	if a.ahead > 0 || a.behind > 0 {
 		syncSub = fmt.Sprintf("↑%d  ↓%d", a.ahead, a.behind)
 	}
-	card2 := renderStatsCard("COMMITS", fmt.Sprintf("%d", commitCount), syncSub, outerW2, textPrimary)
+	card2 := renderStatsCard("COMMITS", strconv.Itoa(commitCount), syncSub, outerW2, textPrimary)
 
 	stashItems := a.stash.Items()
 	stashLabel := "empty"

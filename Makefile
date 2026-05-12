@@ -11,7 +11,7 @@ LDFLAGS  := -s -w \
             -X main.buildCommit=$(COMMIT) \
             -X main.buildDate=$(DATE)
 
-.PHONY: all build install test lint lint-fix clean release snapshot
+.PHONY: all build install test lint lint-fix clean dist release snapshot
 
 all: build
 
@@ -39,6 +39,15 @@ lint-fix:
 clean:
 	rm -f $(BINARY)
 	rm -rf dist/
+
+## dist: cross-compile release binaries into dist/
+dist:
+	rm -rf dist
+	mkdir -p dist
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-arm64 $(CMD)
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-amd64 $(CMD)
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-amd64 $(CMD)
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-amd64.exe $(CMD)
 
 ## release: create a tagged GitHub release via goreleaser (requires GITHUB_TOKEN)
 release:

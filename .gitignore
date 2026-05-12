@@ -1,3 +1,7 @@
 .cache/
 .demo/
 dist/
+.agents/
+.claude/
+skills-lock.json
+gitflow-tui.exe
