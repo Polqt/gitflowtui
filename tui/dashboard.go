@@ -801,23 +801,57 @@ func (a *App) View() string {
 // ── title bar ─────────────────────────────────────────────────────────────────
 
 func (a *App) renderTitleBar(width int) string {
-	icon := lipgloss.NewStyle().Foreground(accentCyan).Bold(true).Render("◈")
-	appName := lipgloss.NewStyle().Foreground(accentCyan).Bold(true).Render("GIT TERMINAL")
-	sep := lipgloss.NewStyle().Foreground(textDim).Render("  /  ")
-	subtitle := lipgloss.NewStyle().Foreground(textSecondary).Render("gitflow-tui")
+	dimStyle := lipgloss.NewStyle().Foreground(textDim)
+	cyanBold := lipgloss.NewStyle().Foreground(accentCyan).Bold(true)
+	primaryBold := lipgloss.NewStyle().Foreground(textPrimary).Bold(true)
 
-	right := ""
+	// Left: >_ gitflowy  |  repo: <name>  ·  branch: <branch>  ·  <sync>
+	prompt := cyanBold.Render(">_")
+	appName := cyanBold.Render("gitflowy")
+	sep := dimStyle.Render("  |  ")
+	repoLabel := dimStyle.Render("repo: ")
+	repoName := cyanBold.Render(a.repoName)
+	branchSep := dimStyle.Render("  ·  branch: ")
+
+	branch := a.currentBranch
+	if branch == "" {
+		branch = "DETACHED"
+	}
+	branchText := primaryBold.Render(branch)
+
+	var syncLabel string
+	var syncStyle lipgloss.Style
+	switch {
+	case a.behind > 0:
+		syncLabel = fmt.Sprintf("behind %d", a.behind)
+		syncStyle = lipgloss.NewStyle().Foreground(accentOrange)
+	case a.ahead > 0:
+		syncLabel = fmt.Sprintf("ahead %d", a.ahead)
+		syncStyle = lipgloss.NewStyle().Foreground(accentCyan)
+	default:
+		syncLabel = "synced ✓"
+		syncStyle = lipgloss.NewStyle().Foreground(accentGreen)
+	}
+	syncPill := dimStyle.Render("  ·  ") + syncStyle.Bold(true).Render(syncLabel)
+
+	left := prompt + " " + appName + sep + repoLabel + repoName + branchSep + branchText + syncPill
+
+	// Right: spinner+label when loading, else ✦ AI (if available) + version
+	var right string
 	if a.loading {
 		right = a.spinner.View() + " " +
 			lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render(a.loadingLabel)
+	} else {
+		var rightParts []string
+		if a.advisor != nil && a.advisor.Available() {
+			rightParts = append(rightParts, lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render("✦ AI"))
+		}
+		rightParts = append(rightParts, dimStyle.Render("⚡ v1"))
+		right = strings.Join(rightParts, "  ")
 	}
 
-	left := icon + "  " + appName + sep + subtitle
-	content := left
-	if right != "" {
-		gap := max(1, width-lipgloss.Width(left)-lipgloss.Width(right)-2)
-		content = left + strings.Repeat(" ", gap) + right
-	}
+	gap := max(1, width-lipgloss.Width(left)-lipgloss.Width(right)-2)
+	content := left + strings.Repeat(" ", gap) + right
 
 	return lipgloss.NewStyle().
 		Foreground(textPrimary).
