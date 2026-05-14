@@ -798,64 +798,49 @@ func (a *App) View() string {
 // ── title bar ─────────────────────────────────────────────────────────────────
 
 func (a *App) renderTitleBar(width int) string {
-	dimStyle := lipgloss.NewStyle().Foreground(textDim)
-	cyanBold := lipgloss.NewStyle().Foreground(accentCyan).Bold(true)
-	primaryBold := lipgloss.NewStyle().Foreground(textPrimary).Bold(true)
+	dim := a.styles.header.sep
+	cyan := a.styles.header.label
+	primary := a.styles.header.branch
 
 	// Left: >_ gitflowy  |  repo: <name>  ·  branch: <branch>  ·  <sync>
-	prompt := cyanBold.Render(">_")
-	appName := cyanBold.Render("gitflowy")
-	sep := dimStyle.Render("  |  ")
-	repoLabel := dimStyle.Render("repo: ")
-	repoName := cyanBold.Render(a.repoName)
-	branchSep := dimStyle.Render("  ·  branch: ")
+	left := cyan.Render(">_") + " " +
+		cyan.Render("gitflowy") +
+		dim.Render("  |  ") +
+		dim.Render("repo: ") +
+		cyan.Render(truncateString(a.repoName, 24)) +
+		dim.Render("  ·  branch: ") +
+		primary.Render(truncateString(a.currentBranch, 30))
 
-	branch := a.currentBranch
-	if branch == "" {
-		branch = "DETACHED"
-	}
-	branchText := primaryBold.Render(branch)
-
-	var syncLabel string
-	var syncStyle lipgloss.Style
+	var syncStr string
 	switch {
 	case a.behind > 0:
-		syncLabel = fmt.Sprintf("behind %d", a.behind)
-		syncStyle = lipgloss.NewStyle().Foreground(accentOrange)
+		syncStr = dim.Render("  ·  ") + lipgloss.NewStyle().Foreground(accentOrange).Bold(true).Render(fmt.Sprintf("behind %d", a.behind))
 	case a.ahead > 0:
-		syncLabel = fmt.Sprintf("ahead %d", a.ahead)
-		syncStyle = lipgloss.NewStyle().Foreground(accentCyan)
+		syncStr = dim.Render("  ·  ") + lipgloss.NewStyle().Foreground(accentCyan).Bold(true).Render(fmt.Sprintf("ahead %d", a.ahead))
 	default:
-		syncLabel = "synced ✓"
-		syncStyle = lipgloss.NewStyle().Foreground(accentGreen)
+		syncStr = dim.Render("  ·  ") + a.styles.header.sync.Render("synced ✓")
 	}
-	syncPill := dimStyle.Render("  ·  ") + syncStyle.Bold(true).Render(syncLabel)
-
-	left := prompt + " " + appName + sep + repoLabel + repoName + branchSep + branchText + syncPill
+	left += syncStr
 
 	// Right: spinner+label when loading, else ✦ AI (if available) + version
 	var right string
 	if a.loading {
-		right = a.spinner.View() + " " +
-			lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render(a.loadingLabel)
+		right = a.spinner.View() + " " + lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render(a.loadingLabel)
 	} else {
-		var rightParts []string
+		var parts []string
 		if a.advisor != nil && a.advisor.Available() {
-			rightParts = append(rightParts, lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render("✦ AI"))
+			parts = append(parts, lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render("✦ AI"))
 		}
-		rightParts = append(rightParts, dimStyle.Render("⚡ v1"))
-		right = strings.Join(rightParts, "  ")
+		parts = append(parts, dim.Render("⚡ v1.2.0"))
+		right = strings.Join(parts, "  ")
 	}
 
-	innerW := max(1, width-2) // Padding(0,1) adds 2, so content width = total - 2
+	// innerW = total width minus padding (1 each side)
+	innerW := max(1, width-2)
 	gap := max(1, innerW-lipgloss.Width(left)-lipgloss.Width(right))
 	content := left + strings.Repeat(" ", gap) + right
 
-	return lipgloss.NewStyle().
-		Foreground(textPrimary).
-		Width(innerW).
-		Padding(0, 1).
-		Render(content)
+	return a.styles.header.bar.Width(innerW).Render(content)
 }
 
 // ── stats cards ───────────────────────────────────────────────────────────────
