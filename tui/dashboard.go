@@ -680,7 +680,7 @@ func (a *App) View() string {
 	if a.showHelp {
 		usedRows++
 	}
-	bodyH := max(8, a.height-usedRows)
+	bodyH := max(1, a.height-usedRows)
 
 	// ── column widths (outer, including borders) ──────────────────────────────
 	// LEFT=22%, CENTER=48%, RIGHT=30% — right gets remainder to fill exactly totalW
@@ -863,39 +863,38 @@ func (a *App) renderFooter(width int) string {
 			lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render(a.loadingLabel)
 	case a.notifError:
 		left = lipgloss.NewStyle().Foreground(accentRed).Bold(true).Render("✕ Error") +
-			bar + lipgloss.NewStyle().Foreground(accentRed).Render(a.notification)
+			bar + lipgloss.NewStyle().Foreground(accentRed).Render(truncateString(a.notification, 40))
 	case a.notification != "":
 		left = lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render("● Ready") +
-			bar + lipgloss.NewStyle().Foreground(textPrimary).Render(a.notification)
+			bar + lipgloss.NewStyle().Foreground(textPrimary).Render(truncateString(a.notification, 40))
 	default:
 		left = lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render("● Ready") +
 			bar + dim.Render("Repository clean")
 	}
 
-	// Right: nav hints — build full then truncate if terminal is narrow
+	// Right: nav hints
 	hint := func(k, label string) string {
 		return keyStyle.Render(k) + dim.Render(" "+label)
 	}
-	hints := []string{
+	right := strings.Join([]string{
 		hint("↑/↓", "Navigate"),
 		hint("Enter", "Select"),
 		hint("Esc", "Back"),
 		hint("?", "Help"),
 		hint("q", "Quit"),
-	}
-	right := strings.Join(hints, bar)
+	}, bar)
 
+	// innerW is the content area (total width minus 2 for padding)
 	innerW := max(1, width-2)
-	rightW := lipgloss.Width(right)
 	leftW := lipgloss.Width(left)
+	rightW := lipgloss.Width(right)
 	gap := max(1, innerW-leftW-rightW)
 
-	// If hints overflow, drop them from the right until they fit
-	for rightW > 0 && leftW+gap+rightW > innerW && len(hints) > 0 {
-		hints = hints[:len(hints)-1]
-		right = strings.Join(hints, bar)
-		rightW = lipgloss.Width(right)
-		gap = max(1, innerW-leftW-rightW)
+	// Hard-clamp: if combined still overflows, truncate left message
+	if leftW+gap+rightW > innerW {
+		gap = 1
+		maxLeftW := max(1, innerW-rightW-gap)
+		left = truncateString(left, maxLeftW)
 	}
 
 	content := left + strings.Repeat(" ", gap) + right
