@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -67,6 +68,7 @@ type App struct {
 	cfg       config.Config
 	eventSink EventSink
 	advisor   *ai.Advisor
+	repoName  string  // last segment of repo.Root
 
 	width  int
 	height int
@@ -186,6 +188,12 @@ func NewApp(repo *git.Repo, cfg config.Config, opts ...AppOption) *App {
 		styles:       defaultStyles(),
 		loadingLabel: "Refreshing",
 		activityLog:  make([]activityEntry, 0, activityLogMax),
+	}
+
+	// Derive repo name from the root directory path.
+	app.repoName = filepath.Base(repo.Root)
+	if app.repoName == "" || app.repoName == "." {
+		app.repoName = "repo"
 	}
 
 	for _, opt := range opts {
