@@ -675,8 +675,8 @@ func (a *App) View() string {
 	totalW := a.width
 
 	// ── height budget ─────────────────────────────────────────────────────────
-	// titleBar=1, cardRow=5(3content+2border), statusLine=1, navBar=3(1content+2border)
-	usedRows := 10
+	// titleBar=1, cardRow=5(3content+2border), footer=1
+	usedRows := 7
 	if a.showHelp {
 		usedRows++
 	}
@@ -767,16 +767,13 @@ func (a *App) View() string {
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, centerCol, rightCol)
 
-	// ── navbar (spans full width, no extra border overhead wrapping) ──────────
-	navBar := a.renderNavbar(totalW)
-
 	// ── compose ───────────────────────────────────────────────────────────────
 	var parts []string
 	parts = append(parts, titleBar, cardRow, body)
 	if a.showHelp {
 		parts = append(parts, a.styles.help.Render(helpLine()))
 	}
-	parts = append(parts, a.statusLine(), navBar)
+	parts = append(parts, a.renderFooter(totalW))
 
 	ui := strings.Join(parts, "\n")
 
@@ -841,6 +838,55 @@ func (a *App) renderTitleBar(width int) string {
 	content := left + strings.Repeat(" ", gap) + right
 
 	return a.styles.header.bar.Width(innerW).Render(content)
+}
+
+// ── footer ────────────────────────────────────────────────────────────────────
+
+func (a *App) renderFooter(width int) string {
+	dim := lipgloss.NewStyle().Foreground(textDim)
+	key := lipgloss.NewStyle().Foreground(textSecondary)
+	sep := dim.Render("  │  ")
+
+	// Left: status indicator
+	var left string
+	switch {
+	case a.loading:
+		left = a.spinner.View() + " " +
+			lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render(a.loadingLabel)
+	case a.notifError:
+		left = lipgloss.NewStyle().Foreground(accentRed).Bold(true).Render("✕ Error") +
+			sep + lipgloss.NewStyle().Foreground(accentRed).Render(truncateString(a.notification, max(1, width/2-16)))
+	case a.notification != "":
+		left = lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render("● Ready") +
+			sep + lipgloss.NewStyle().Foreground(textPrimary).Render(truncateString(a.notification, max(1, width/2-16)))
+	default:
+		left = lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render("● Ready") +
+			sep + dim.Render("Repository clean")
+	}
+
+	// Right: nav hints
+	hint := func(k, label string) string {
+		return key.Render(k) + dim.Render(" "+label)
+	}
+	right := strings.Join([]string{
+		hint("↑/↓", "Navigate"),
+		hint("⏎Enter", "Select"),
+		hint("Esc", "Back"),
+		hint("I/", "Search"),
+		hint("?", "Help"),
+		hint("q", "Quit"),
+	}, "  │  ")
+
+	innerW := max(1, width-2)
+	gap := max(1, innerW-lipgloss.Width(left)-lipgloss.Width(right))
+	content := left + strings.Repeat(" ", gap) + right
+
+	return lipgloss.NewStyle().
+		Background(bgSurface).
+		Foreground(textPrimary).
+		Width(innerW).
+		Padding(0, 1).
+		Render(content)
 }
 
 // ── stats cards ───────────────────────────────────────────────────────────────
