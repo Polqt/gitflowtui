@@ -68,7 +68,7 @@ type App struct {
 	cfg       config.Config
 	eventSink EventSink
 	advisor   *ai.Advisor
-	repoName  string  // last segment of repo.Root
+	repoName  string // last segment of repo.Root
 
 	width  int
 	height int
