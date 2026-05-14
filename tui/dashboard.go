@@ -795,31 +795,34 @@ func (a *App) View() string {
 // ── title bar ─────────────────────────────────────────────────────────────────
 
 func (a *App) renderTitleBar(width int) string {
-	dim := a.styles.header.sep
-	cyan := a.styles.header.label
-	primary := a.styles.header.branch
+	dim := lipgloss.NewStyle().Foreground(textDim)
+	cyan := lipgloss.NewStyle().Foreground(accentCyan).Bold(true)
+	primary := lipgloss.NewStyle().Foreground(textPrimary).Bold(true)
+
+	branch := a.currentBranch
+	if branch == "" {
+		branch = "DETACHED"
+	}
 
 	// Left: >_ gitflowy  |  repo: <name>  ·  branch: <branch>  ·  <sync>
 	left := cyan.Render(">_") + " " +
 		cyan.Render("gitflowy") +
 		dim.Render("  |  ") +
 		dim.Render("repo: ") +
-		cyan.Render(truncateString(a.repoName, 24)) +
+		cyan.Render(truncateString(a.repoName, 20)) +
 		dim.Render("  ·  branch: ") +
-		primary.Render(truncateString(a.currentBranch, 30))
+		primary.Render(truncateString(branch, 28))
 
-	var syncStr string
 	switch {
 	case a.behind > 0:
-		syncStr = dim.Render("  ·  ") + lipgloss.NewStyle().Foreground(accentOrange).Bold(true).Render(fmt.Sprintf("behind %d", a.behind))
+		left += dim.Render("  ·  ") + lipgloss.NewStyle().Foreground(accentOrange).Bold(true).Render(fmt.Sprintf("behind %d", a.behind))
 	case a.ahead > 0:
-		syncStr = dim.Render("  ·  ") + lipgloss.NewStyle().Foreground(accentCyan).Bold(true).Render(fmt.Sprintf("ahead %d", a.ahead))
+		left += dim.Render("  ·  ") + lipgloss.NewStyle().Foreground(accentCyan).Bold(true).Render(fmt.Sprintf("ahead %d", a.ahead))
 	default:
-		syncStr = dim.Render("  ·  ") + a.styles.header.sync.Render("synced ✓")
+		left += dim.Render("  ·  ") + lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render("synced ✓")
 	}
-	left += syncStr
 
-	// Right: spinner+label when loading, else ✦ AI (if available) + version
+	// Right: spinner when loading, else AI badge + version
 	var right string
 	if a.loading {
 		right = a.spinner.View() + " " + lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render(a.loadingLabel)
@@ -832,22 +835,27 @@ func (a *App) renderTitleBar(width int) string {
 		right = strings.Join(parts, "  ")
 	}
 
-	// innerW = total width minus padding (1 each side)
-	innerW := max(1, width-2)
+	// Build content, clamp to available width
+	innerW := max(1, width-2) // subtract padding (1 each side)
 	gap := max(1, innerW-lipgloss.Width(left)-lipgloss.Width(right))
-	content := left + strings.Repeat(" ", gap) + right
+	content := truncateString(left+strings.Repeat(" ", gap)+right, innerW)
 
-	return a.styles.header.bar.Width(innerW).Render(content)
+	return lipgloss.NewStyle().
+		Background(bgElevated).
+		Foreground(textPrimary).
+		Width(innerW).
+		Padding(0, 1).
+		Render(content)
 }
 
 // ── footer ────────────────────────────────────────────────────────────────────
 
 func (a *App) renderFooter(width int) string {
 	dim := lipgloss.NewStyle().Foreground(textDim)
-	key := lipgloss.NewStyle().Foreground(textSecondary)
-	sep := dim.Render("  │  ")
+	keyStyle := lipgloss.NewStyle().Foreground(textSecondary).Bold(true)
+	bar := dim.Render(" │ ")
 
-	// Left: status indicator
+	// Left: status / notification
 	var left string
 	switch {
 	case a.loading:
@@ -855,34 +863,45 @@ func (a *App) renderFooter(width int) string {
 			lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render(a.loadingLabel)
 	case a.notifError:
 		left = lipgloss.NewStyle().Foreground(accentRed).Bold(true).Render("✕ Error") +
-			sep + lipgloss.NewStyle().Foreground(accentRed).Render(truncateString(a.notification, max(1, width/2-16)))
+			bar + lipgloss.NewStyle().Foreground(accentRed).Render(a.notification)
 	case a.notification != "":
 		left = lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render("● Ready") +
-			sep + lipgloss.NewStyle().Foreground(textPrimary).Render(truncateString(a.notification, max(1, width/2-16)))
+			bar + lipgloss.NewStyle().Foreground(textPrimary).Render(a.notification)
 	default:
 		left = lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render("● Ready") +
-			sep + dim.Render("Repository clean")
+			bar + dim.Render("Repository clean")
 	}
 
-	// Right: nav hints
+	// Right: nav hints — build full then truncate if terminal is narrow
 	hint := func(k, label string) string {
-		return key.Render(k) + dim.Render(" "+label)
+		return keyStyle.Render(k) + dim.Render(" "+label)
 	}
-	right := strings.Join([]string{
+	hints := []string{
 		hint("↑/↓", "Navigate"),
-		hint("⏎Enter", "Select"),
+		hint("Enter", "Select"),
 		hint("Esc", "Back"),
-		hint("I/", "Search"),
 		hint("?", "Help"),
 		hint("q", "Quit"),
-	}, "  │  ")
+	}
+	right := strings.Join(hints, bar)
 
 	innerW := max(1, width-2)
-	gap := max(1, innerW-lipgloss.Width(left)-lipgloss.Width(right))
+	rightW := lipgloss.Width(right)
+	leftW := lipgloss.Width(left)
+	gap := max(1, innerW-leftW-rightW)
+
+	// If hints overflow, drop them from the right until they fit
+	for rightW > 0 && leftW+gap+rightW > innerW && len(hints) > 0 {
+		hints = hints[:len(hints)-1]
+		right = strings.Join(hints, bar)
+		rightW = lipgloss.Width(right)
+		gap = max(1, innerW-leftW-rightW)
+	}
+
 	content := left + strings.Repeat(" ", gap) + right
 
 	return lipgloss.NewStyle().
-		Background(bgSurface).
+		Background(bgElevated).
 		Foreground(textPrimary).
 		Width(innerW).
 		Padding(0, 1).
