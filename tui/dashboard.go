@@ -850,7 +850,7 @@ func (a *App) renderTitleBar(width int) string {
 		right = strings.Join(rightParts, "  ")
 	}
 
-	gap := max(1, width-lipgloss.Width(left)-lipgloss.Width(right)-2)
+	gap := max(1, width-lipgloss.Width(left)-lipgloss.Width(right)-4)
 	content := left + strings.Repeat(" ", gap) + right
 
 	return lipgloss.NewStyle().
