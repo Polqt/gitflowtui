@@ -675,8 +675,8 @@ func (a *App) View() string {
 	totalW := a.width
 
 	// ── height budget ─────────────────────────────────────────────────────────
-	// titleBar=1, breadcrumb=1, cardRow=5(3content+2border), statusLine=1, navBar=3(1content+2border)
-	usedRows := 11
+	// titleBar=1, cardRow=5(3content+2border), statusLine=1, navBar=3(1content+2border)
+	usedRows := 10
 	if a.showHelp {
 		usedRows++
 	}
@@ -690,9 +690,6 @@ func (a *App) View() string {
 
 	// ── title bar ─────────────────────────────────────────────────────────────
 	titleBar := a.renderTitleBar(totalW)
-
-	// ── breadcrumb bar ────────────────────────────────────────────────────────
-	breadcrumb := a.renderBreadcrumb(totalW)
 
 	// ── stats cards row ───────────────────────────────────────────────────────
 	cardRow := a.renderStatsCards(totalW)
@@ -775,7 +772,7 @@ func (a *App) View() string {
 
 	// ── compose ───────────────────────────────────────────────────────────────
 	var parts []string
-	parts = append(parts, titleBar, breadcrumb, cardRow, body)
+	parts = append(parts, titleBar, cardRow, body)
 	if a.showHelp {
 		parts = append(parts, a.styles.help.Render(helpLine()))
 	}
@@ -855,52 +852,6 @@ func (a *App) renderTitleBar(width int) string {
 
 	return lipgloss.NewStyle().
 		Foreground(textPrimary).
-		Width(width).
-		Padding(0, 1).
-		Render(content)
-}
-
-// ── breadcrumb bar ────────────────────────────────────────────────────────────
-
-func (a *App) renderBreadcrumb(width int) string {
-	sep := lipgloss.NewStyle().Foreground(textDim).Render("  ·  ")
-
-	branch := a.currentBranch
-	if branch == "" {
-		branch = "DETACHED"
-	}
-	branchIcon := lipgloss.NewStyle().Foreground(accentCyan).Render("⎇")
-	branchText := lipgloss.NewStyle().Foreground(textPrimary).Bold(true).Render(branch)
-
-	var syncLabel string
-	var syncStyle lipgloss.Style
-	switch {
-	case a.behind > 0:
-		syncLabel = fmt.Sprintf("behind %d", a.behind)
-		syncStyle = lipgloss.NewStyle().Foreground(accentOrange)
-	case a.ahead > 0:
-		syncLabel = fmt.Sprintf("ahead %d", a.ahead)
-		syncStyle = lipgloss.NewStyle().Foreground(accentCyan)
-	default:
-		syncLabel = "synced"
-		syncStyle = lipgloss.NewStyle().Foreground(accentGreen)
-	}
-	syncPill := syncStyle.Render(syncLabel)
-
-	left := branchIcon + " " + branchText + sep + syncPill
-
-	// Right-aligned indicators.
-	rightParts := make([]string, 0, 2)
-	if a.advisor != nil && a.advisor.Available() {
-		rightParts = append(rightParts, lipgloss.NewStyle().Foreground(accentMagenta).Bold(true).Render("✦ AI"))
-	}
-	rightParts = append(rightParts, lipgloss.NewStyle().Foreground(textDim).Render("⚡ v1"))
-
-	right := strings.Join(rightParts, "  ")
-	gap := max(1, width-lipgloss.Width(left)-lipgloss.Width(right)-4)
-	content := left + strings.Repeat(" ", gap) + right
-
-	return lipgloss.NewStyle().
 		Width(width).
 		Padding(0, 1).
 		Render(content)
