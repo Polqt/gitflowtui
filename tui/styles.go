@@ -24,7 +24,6 @@ const (
 	textPrimary   = lipgloss.Color("#e2e8f0")
 	textSecondary = lipgloss.Color("#94a3b8")
 	textDim       = lipgloss.Color("#6b7280")
-	textAccent    = lipgloss.Color("#00d9ff")
 )
 
 // Branch tag pill backgrounds.
