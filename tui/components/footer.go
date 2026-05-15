@@ -18,11 +18,11 @@ type FooterProps struct {
 }
 
 // RenderFooter returns a footer row inside a rounded border box.
-// Layout: ● ready / notification        ↑/↓ navigate   enter select   q quit
+// Layout: ● ready / notification        ↑/↓ navigate   enter select   q quit.
 func RenderFooter(p FooterProps) string {
 	// border takes 1 col each side → content box = Width-2; padding 2 each side
-	hpad   := 2
-	boxW   := max(1, p.Width-2)   // lipgloss Width() — border adds the 2 back
+	hpad := 2
+	boxW := max(1, p.Width-2)     // lipgloss Width() — border adds the 2 back
 	innerW := max(1, boxW-hpad*2) // usable text width inside padding
 
 	// ── status (left) ─────────────────────────────────────────────────────────

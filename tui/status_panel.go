@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -15,14 +15,13 @@ func (a *App) renderStatusSection(content string, outerW, outerH int) string {
 
 	var titleColor, borderColor lipgloss.Color
 	if focused {
-		titleColor  = accentCyan
+		titleColor = accentCyan
 		borderColor = accentCyan
 	} else {
-		titleColor  = textSecondary
+		titleColor = textSecondary
 		borderColor = bgBorder
 	}
 
-	// Count staged / modified / untracked.
 	staged, modified, untracked := 0, 0, 0
 	for _, item := range a.status.Items() {
 		if fi, ok := item.(fileItem); ok {
@@ -31,7 +30,8 @@ func (a *App) renderStatusSection(content string, outerW, outerH int) string {
 			case f.IsUntracked():
 				untracked++
 			case f.IsStaged() && f.IsUnstaged():
-				staged++; modified++
+				staged++
+				modified++
 			case f.IsStaged():
 				staged++
 			case f.IsUnstaged():
@@ -41,22 +41,21 @@ func (a *App) renderStatusSection(content string, outerW, outerH int) string {
 	}
 
 	titleTxt := lipgloss.NewStyle().Foreground(titleColor).Bold(true).Render("FILE STATUS")
-	counts   := fmt.Sprintf("%d  %d  %d",  staged, modified, untracked)
-	stagedLbl   := lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render(fmt.Sprintf("%d", staged))
-	modifiedLbl := lipgloss.NewStyle().Foreground(accentYellow).Bold(true).Render(fmt.Sprintf("%d", modified))
-	untrkLbl    := lipgloss.NewStyle().Foreground(textDim).Bold(true).Render(fmt.Sprintf("%d", untracked))
-	_ = counts
+	stagedLbl := lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render(strconv.Itoa(staged))
+	modifiedLbl := lipgloss.NewStyle().Foreground(accentYellow).Bold(true).Render(strconv.Itoa(modified))
+	untrkLbl := lipgloss.NewStyle().Foreground(textDim).Bold(true).Render(strconv.Itoa(untracked))
 	countsStr := stagedLbl + "  " + modifiedLbl + "  " + untrkLbl
 
-	gap      := max(1, innerW-lipgloss.Width(titleTxt)-lipgloss.Width(countsStr))
+	gap := max(1, innerW-lipgloss.Width(titleTxt)-lipgloss.Width(countsStr))
 	titleRow := titleTxt + strings.Repeat(" ", gap) + countsStr
 
 	bodyH := max(1, innerH-1)
-	body  := renderPanelBody(content, bodyH)
+	body := renderPanelBody(content, bodyH)
 
-	style := lipgloss.NewStyle().
+	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor)
-
-	return style.Width(innerW).Height(innerH).Render(titleRow + "\n" + body)
+		BorderForeground(borderColor).
+		Width(innerW).
+		Height(innerH).
+		Render(titleRow + "\n" + body)
 }

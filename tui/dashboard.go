@@ -22,7 +22,6 @@ const (
 	branchPrefixHotfix  = "hotfix/"
 )
 
-
 type logMsg struct {
 	branch  string
 	commits []git.Commit
@@ -585,8 +584,8 @@ func (a *App) View() string {
 	bodyH := max(3, a.height-fixedRows)
 
 	// ── column widths ─────────────────────────────────────────────────────────
-	leftW   := max(22, (totalW*20)/100)
-	rightW  := max(28, (totalW*35)/100)
+	leftW := max(22, (totalW*20)/100)
+	rightW := max(28, (totalW*35)/100)
 	centerW := totalW - leftW - rightW
 
 	// ── header (component) ────────────────────────────────────────────────────
@@ -608,10 +607,10 @@ func (a *App) View() string {
 	cards := a.renderCards(totalW)
 
 	// ── LEFT: branches + commands ─────────────────────────────────────────────
-	cmdH       := 20
+	cmdH := 20
 	branchOutH := bodyH - cmdH
-	branchInW  := max(1, leftW-2)
-	branchInH  := max(1, branchOutH-2)
+	branchInW := max(1, leftW-2)
+	branchInH := max(1, branchOutH-2)
 
 	a.branches.SetSize(branchInW, branchInH)
 	branchContent := a.branches.View()
@@ -627,7 +626,7 @@ func (a *App) View() string {
 
 	// ── CENTER: commit log + stash ────────────────────────────────────────────
 	stashOutH := max(5, bodyH/5)
-	logOutH   := bodyH - stashOutH
+	logOutH := bodyH - stashOutH
 	centerInW := max(1, centerW-2)
 
 	a.log.SetSize(centerInW, max(1, logOutH-2))
@@ -647,13 +646,13 @@ func (a *App) View() string {
 	)
 
 	// ── RIGHT: activity + status + diff ──────────────────────────────────────
-	actH    := max(5, bodyH/3)
-	statH   := max(5, bodyH/4)
-	diffH   := bodyH - actH - statH
+	actH := max(5, bodyH/3)
+	statH := max(5, bodyH/4)
+	diffH := bodyH - actH - statH
 	rightInW := max(1, rightW-2)
 
 	a.status.SetSize(rightInW, max(1, statH-2))
-	a.diff.Width  = rightInW
+	a.diff.Width = rightInW
 	a.diff.Height = max(1, diffH-2)
 	if a.aiExplainText != "" {
 		a.diff.SetContent(a.aiExplainText)
@@ -691,7 +690,7 @@ func (a *App) View() string {
 
 	// ── compose ───────────────────────────────────────────────────────────────
 	blank := strings.Repeat(" ", totalW)
-	var parts []string
+	parts := make([]string, 0, 7)
 	parts = append(parts, header, blank, cards, blank, body, blank, footer)
 
 	// Clamp to terminal height — prevents any overflow pushing the header off screen.
@@ -828,8 +827,8 @@ func (a *App) aiMergeRiskCmd(targetBranch string) tea.Cmd {
 
 func (a *App) aiExplainCmd() tea.Cmd {
 	currentPanel := a.activePanel
-	currentDiff  := a.rawDiff
-	wordDiff     := a.wordDiff
+	currentDiff := a.rawDiff
+	wordDiff := a.wordDiff
 
 	var stashRef string
 	if currentPanel == panelStash {
@@ -898,7 +897,7 @@ func (a *App) stopAIExplain() {
 		a.aiExplainStop = nil
 	}
 	a.aiExplainTokens = nil
-	a.aiExplainErrs   = nil
+	a.aiExplainErrs = nil
 }
 
 func (a *App) aiBranchHealthCmd() tea.Cmd {
@@ -926,4 +925,3 @@ func (a *App) mergeRiskTarget() (string, bool) {
 		return "", false
 	}
 }
-

@@ -37,6 +37,10 @@ func (a *App) renderPrompt() string {
 
 func promptExample(mode promptMode) string {
 	switch mode {
+	case promptNone:
+		return ""
+	case promptStash:
+		return ""
 	case promptFeatureName:
 		return "e.g. login-redesign  ->  feature/login-redesign"
 	case promptReleaseVersion:
@@ -47,9 +51,8 @@ func promptExample(mode promptMode) string {
 		return "e.g. feat(auth): add JWT refresh"
 	case promptDeleteBranch:
 		return "Type the branch name exactly to confirm"
-	default:
-		return ""
 	}
+	return ""
 }
 
 func (a *App) renderAIOverlay() string {

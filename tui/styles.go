@@ -2,7 +2,6 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-
 const (
 	bgBase     = lipgloss.Color("#050816")
 	bgSurface  = lipgloss.Color("#08111f")

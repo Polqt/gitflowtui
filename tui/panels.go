@@ -10,10 +10,6 @@ func (a *App) renderSection(name, content string, outerW, outerH int, focused bo
 	return a.renderSectionBordered(name, content, outerW, outerH, focused, true)
 }
 
-func (a *App) renderSectionBare(name, content string, outerW, outerH int, focused bool) string {
-	return a.renderSectionBordered(name, content, outerW, outerH, focused, false)
-}
-
 func (a *App) renderSectionBordered(name, content string, outerW, outerH int, focused bool, bordered bool) string {
 	var titleStyle lipgloss.Style
 	if focused {
@@ -70,13 +66,13 @@ func (a *App) renderBranchSection(content string, count, outerW, outerH int) str
 	}
 
 	titleTxt := lipgloss.NewStyle().Foreground(titleColor).Bold(true).Render("BRANCHES")
-	icons    := lipgloss.NewStyle().Foreground(textDim).Render("Q  ▽")
+	icons := lipgloss.NewStyle().Foreground(textDim).Render("Q  ▽")
 	titleGap := max(1, innerW-lipgloss.Width(titleTxt)-lipgloss.Width(icons))
 	titleRow := titleTxt + strings.Repeat(" ", titleGap) + icons
 
 	// Reserve title row + count footer row inside the border.
 	bodyH := max(1, innerH-2)
-	body  := renderPanelBody(content, bodyH)
+	body := renderPanelBody(content, bodyH)
 
 	countLine := lipgloss.NewStyle().Foreground(textDim).
 		Render("• " + pluralize(count, "branch", "branches"))

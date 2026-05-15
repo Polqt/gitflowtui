@@ -75,12 +75,11 @@ func branchKindIcon(kind gitflow.BranchKind) string {
 		color = tagReleaseFg
 	case gitflow.KindHotfix:
 		color = tagHotfixFg
-	default:
+	case gitflow.KindUnknown:
 		color = textDim
 	}
 	return lipgloss.NewStyle().Foreground(color).Render("⎇")
 }
-
 
 func branchListItems(branches []git.Branch, cfg gitflow.Config, st uiStyles) []list.Item {
 	items := make([]list.Item, 0, len(branches))

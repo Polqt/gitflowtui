@@ -37,9 +37,9 @@ type HeaderProps struct {
 }
 
 // Render returns a single clean header row.
-// Layout: >_ gitflowy  |  repo: name  ·  branch: main  ·  synced ●      v1.2.0
+// Layout: >_ gitflowy  |  repo: name  ·  branch: main  ·  synced ●      v1.2.0.
 func Render(p HeaderProps) string {
-	sep  := lipgloss.NewStyle().Foreground(TextDim).Render("  ·  ")
+	sep := lipgloss.NewStyle().Foreground(TextDim).Render("  ·  ")
 	pipe := lipgloss.NewStyle().Foreground(TextDim).Render("  |  ")
 	hpad := 2
 
@@ -86,7 +86,7 @@ func Render(p HeaderProps) string {
 	right := strings.Join(rightParts, "  ")
 
 	// ── adaptive left — drop segments when terminal is narrow ─────────────────
-	innerW := max(1, p.Width-hpad*2)
+	innerW := maxInt(1, p.Width-hpad*2)
 	rightW := lipgloss.Width(right)
 
 	left := appSeg + pipe + repoSeg + sep + branchSeg + sep + syncSeg
@@ -119,7 +119,7 @@ func truncate(s string, n int) string {
 	return string(runes[:n-1]) + "…"
 }
 
-func max(a, b int) int {
+func maxInt(a, b int) int {
 	if a > b {
 		return a
 	}

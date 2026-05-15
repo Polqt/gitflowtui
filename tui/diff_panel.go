@@ -13,18 +13,17 @@ func (a *App) renderDiffSection(content string, outerW, outerH int) string {
 
 	var titleColor, borderColor lipgloss.Color
 	if focused {
-		titleColor  = accentCyan
+		titleColor = accentCyan
 		borderColor = accentCyan
 	} else {
-		titleColor  = textSecondary
+		titleColor = textSecondary
 		borderColor = bgBorder
 	}
 
 	titleTxt := lipgloss.NewStyle().Foreground(titleColor).Bold(true).Render("DIFF VIEWER")
 	modePill := lipgloss.NewStyle().Foreground(textSecondary).Render("Line ▼")
-	pipe     := lipgloss.NewStyle().Foreground(textDim).Render(" | ")
+	pipe := lipgloss.NewStyle().Foreground(textDim).Render(" | ")
 
-	// Show current file from selected status item.
 	fileName := ""
 	if item, ok := a.selectedFileItem(); ok {
 		fileName = truncateString(item.file.Path, 30)
@@ -36,12 +35,12 @@ func (a *App) renderDiffSection(content string, outerW, outerH int) string {
 			lipgloss.NewStyle().Foreground(accentRed).Render("→")
 	}
 
-	right    := modePill + pipe + fileStr
-	gap      := max(1, innerW-lipgloss.Width(titleTxt)-lipgloss.Width(right))
+	right := modePill + pipe + fileStr
+	gap := max(1, innerW-lipgloss.Width(titleTxt)-lipgloss.Width(right))
 	titleRow := titleTxt + strings.Repeat(" ", gap) + right
 
 	bodyH := max(1, innerH-1)
-	body  := renderPanelBody(content, bodyH)
+	body := renderPanelBody(content, bodyH)
 
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).

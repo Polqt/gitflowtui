@@ -16,16 +16,16 @@ func colorizeDiff(raw string, maxWidth int) string {
 		maxWidth = 120
 	}
 
-	added   := lipgloss.NewStyle().Foreground(accentGreen)
+	added := lipgloss.NewStyle().Foreground(accentGreen)
 	removed := lipgloss.NewStyle().Foreground(accentRed)
-	hunk    := lipgloss.NewStyle().Foreground(accentCyan)
-	meta    := lipgloss.NewStyle().Bold(true).Foreground(textPrimary)
-	lineNo  := lipgloss.NewStyle().Foreground(textDim)
+	hunk := lipgloss.NewStyle().Foreground(accentCyan)
+	meta := lipgloss.NewStyle().Bold(true).Foreground(textPrimary)
+	lineNo := lipgloss.NewStyle().Foreground(textDim)
 	wordAdd := lipgloss.NewStyle().Foreground(accentGreen).Bold(true)
 	wordDel := lipgloss.NewStyle().Foreground(accentRed).Bold(true)
 
-	lines   := strings.Split(raw, "\n")
-	result  := make([]string, 0, len(lines))
+	lines := strings.Split(raw, "\n")
+	result := make([]string, 0, len(lines))
 	oldLine := 0
 	newLine := 0
 
@@ -40,12 +40,16 @@ func colorizeDiff(raw string, maxWidth int) string {
 			result = append(result, meta.Render(line))
 
 		case strings.HasPrefix(line, "@@"):
-			// Parse hunk header to reset line counters.
+			// Parse hunk header to reset line counters. Errors are non-fatal.
 			var o, n int
-			fmt.Sscanf(line, "@@ -%d", &o)
-			fmt.Sscanf(line, "@@ -%*d,%*d +%d", &n)
-			if o > 0 { oldLine = o - 1 }
-			if n > 0 { newLine = n - 1 }
+			_, _ = fmt.Sscanf(line, "@@ -%d", &o)
+			_, _ = fmt.Sscanf(line, "@@ -%*d,%*d +%d", &n)
+			if o > 0 {
+				oldLine = o - 1
+			}
+			if n > 0 {
+				newLine = n - 1
+			}
 			result = append(result, hunk.Render(line))
 
 		case strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):

@@ -100,8 +100,8 @@ func (a *App) renderCards(totalW int) string {
 func renderCard(label, value, sub string, outerW int, valueColor lipgloss.Color) string {
 	// Width(w) sets the content box width. border adds 1 col each side → outerW = w+2.
 	// So content width = outerW-2. We manually pad 1 space each side inside content.
-	contentW := max(1, outerW-2)   // lipgloss Width() value
-	textW := max(1, contentW-2)    // visible text width (1 space pad each side)
+	contentW := max(1, outerW-2) // lipgloss Width() value
+	textW := max(1, contentW-2)  // visible text width (1 space pad each side)
 	pad := " "
 
 	lbl := pad + lipgloss.NewStyle().Foreground(textDim).Render(truncateString(label, textW))

@@ -30,7 +30,7 @@ func (a *App) renderActivityLog(width, height int) string {
 			iconColor = c
 		}
 		icon := lipgloss.NewStyle().Foreground(iconColor).Bold(true).Render(entry.icon)
-		ts   := lipgloss.NewStyle().Foreground(textDim).Render(entry.timestamp.Format("15:04"))
+		ts := lipgloss.NewStyle().Foreground(textDim).Render(entry.timestamp.Format("15:04"))
 		txtS := lipgloss.NewStyle().Foreground(textPrimary)
 		if entry.isError {
 			txtS = lipgloss.NewStyle().Foreground(accentRed)
@@ -55,12 +55,12 @@ func (a *App) renderActivitySection(content string, outerW, outerH int) string {
 	innerH := max(1, outerH-2)
 
 	titleTxt := lipgloss.NewStyle().Foreground(textSecondary).Bold(true).Render("~~ ACTIVITY")
-	live     := lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render("+ LIVE")
-	gap      := max(1, innerW-lipgloss.Width(titleTxt)-lipgloss.Width(live))
+	live := lipgloss.NewStyle().Foreground(accentGreen).Bold(true).Render("+ LIVE")
+	gap := max(1, innerW-lipgloss.Width(titleTxt)-lipgloss.Width(live))
 	titleRow := titleTxt + strings.Repeat(" ", gap) + live
 
 	bodyH := max(1, innerH-1)
-	body  := renderPanelBody(content, bodyH)
+	body := renderPanelBody(content, bodyH)
 
 	return a.styles.panel.Width(innerW).Height(innerH).Render(titleRow + "\n" + body)
 }

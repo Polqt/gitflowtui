@@ -6,14 +6,21 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const (
+	keyTab   = "tab"
+	keyEnter = "enter"
+	keyEsc   = "esc"
+	keyCtrlA = "ctrl+a"
+)
+
 func (a *App) renderCmdPalette(outerW, outerH int) string {
 	innerW := max(1, outerW-2)
 	innerH := max(1, outerH-2)
 	pad := " "
 
 	titleStyle := lipgloss.NewStyle().Foreground(textSecondary).Bold(true)
-	lStyle     := lipgloss.NewStyle().Foreground(textPrimary)
-	dimStyle   := lipgloss.NewStyle().Foreground(textDim)
+	lStyle := lipgloss.NewStyle().Foreground(textPrimary)
+	dimStyle := lipgloss.NewStyle().Foreground(textDim)
 
 	border := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -32,19 +39,18 @@ func (a *App) renderCmdPalette(outerW, outerH int) string {
 			scrollIndicator = dimStyle.Render(" ▼")
 		}
 		title := titleStyle.Render("KEYBINDINGS") + scrollIndicator
-		sep   := dimStyle.Render(strings.Repeat("─", max(1, innerW)))
-
+		sep := dimStyle.Render(strings.Repeat("─", max(1, innerW)))
 		content := title + "\n" + sep + "\n\n" + a.helpVP.View()
 		return border.Render(content)
 	}
 
 	// ── normal command list ────────────────────────────────────────────────────
-	bgGreen   := lipgloss.Color("#0d2e1a")
-	bgCyan    := lipgloss.Color("#0a2535")
-	bgYellow  := lipgloss.Color("#2e1f00")
+	bgGreen := lipgloss.Color("#0d2e1a")
+	bgCyan := lipgloss.Color("#0a2535")
+	bgYellow := lipgloss.Color("#2e1f00")
 	bgMagenta := lipgloss.Color("#1e0a2e")
-	bgRed     := lipgloss.Color("#2e0a0a")
-	bgDim     := lipgloss.Color("#1a1a1a")
+	bgRed := lipgloss.Color("#2e0a0a")
+	bgDim := lipgloss.Color("#1a1a1a")
 
 	keyPill := func(k string, fg, bg lipgloss.Color) string {
 		return lipgloss.NewStyle().
@@ -57,7 +63,7 @@ func (a *App) renderCmdPalette(outerW, outerH int) string {
 
 	keyRow := func(k string, fg, bg lipgloss.Color, label string) string {
 		pill := keyPill(k, fg, bg)
-		lr   := lStyle.Render(label)
+		lr := lStyle.Render(label)
 		used := len(pad) + lipgloss.Width(pill) + 1 + lipgloss.Width(lr)
 		space := max(0, innerW-used)
 		return pad + pill + " " + lr + strings.Repeat(" ", space)
@@ -66,25 +72,25 @@ func (a *App) renderCmdPalette(outerW, outerH int) string {
 	rows := []string{
 		pad + titleStyle.Render("COMMANDS"),
 		"",
-		keyRow("n", accentGreen,   bgGreen,   "New branch"),
+		keyRow("n", accentGreen, bgGreen, "New branch"),
 		"",
-		keyRow("c", accentCyan,    bgCyan,    "Commit"),
-		keyRow("s", accentYellow,  bgYellow,  "Stage file"),
-		keyRow("u", accentYellow,  bgYellow,  "Unstage file"),
+		keyRow("c", accentCyan, bgCyan, "Commit"),
+		keyRow("s", accentYellow, bgYellow, "Stage file"),
+		keyRow("u", accentYellow, bgYellow, "Unstage file"),
 		keyRow("a", accentMagenta, bgMagenta, "Stash"),
 		"",
-		keyRow("p", accentCyan,    bgCyan,    "Push"),
-		keyRow("P", accentCyan,    bgCyan,    "Pull (rebase)"),
-		keyRow("g", accentCyan,    bgCyan,    "Fetch"),
+		keyRow("p", accentCyan, bgCyan, "Push"),
+		keyRow("P", accentCyan, bgCyan, "Pull (rebase)"),
+		keyRow("g", accentCyan, bgCyan, "Fetch"),
 		"",
-		keyRow("D", accentRed,     bgRed,     "Delete branch"),
-		keyRow("F", accentGreen,   bgGreen,   "Finish feature"),
+		keyRow("D", accentRed, bgRed, "Delete branch"),
+		keyRow("F", accentGreen, bgGreen, "Finish feature"),
 		keyRow("R", accentMagenta, bgMagenta, "Finish release"),
-		keyRow("H", accentYellow,  bgYellow,  "Finish hotfix"),
+		keyRow("H", accentYellow, bgYellow, "Finish hotfix"),
 		"",
-		keyRow("?", textDim,       bgDim,     "Help"),
-		keyRow("r", textDim,       bgDim,     "Refresh"),
-		keyRow("q", textDim,       bgDim,     "Quit"),
+		keyRow("?", textDim, bgDim, "Help"),
+		keyRow("r", textDim, bgDim, "Refresh"),
+		keyRow("q", textDim, bgDim, "Quit"),
 	}
 
 	if len(rows) > innerH {
@@ -97,9 +103,9 @@ func (a *App) renderCmdPalette(outerW, outerH int) string {
 // helpContent returns the full scrollable keybinding reference text.
 func helpContent() string {
 	titleStyle := lipgloss.NewStyle().Foreground(accentCyan).Bold(true)
-	keyStyle   := lipgloss.NewStyle().Foreground(accentCyan).Bold(true)
-	sepStyle   := lipgloss.NewStyle().Foreground(textDim)
-	descStyle  := lipgloss.NewStyle().Foreground(textSecondary)
+	keyStyle := lipgloss.NewStyle().Foreground(accentCyan).Bold(true)
+	sepStyle := lipgloss.NewStyle().Foreground(textDim)
+	descStyle := lipgloss.NewStyle().Foreground(textSecondary)
 
 	type entry struct{ key, desc string }
 	groups := []struct {
@@ -107,16 +113,16 @@ func helpContent() string {
 		entries []entry
 	}{
 		{"Navigation", []entry{
-			{"tab", "cycle panels"},
+			{keyTab, "cycle panels"},
 			{"↑ / ↓", "move selection"},
-			{"enter", "select or action"},
-			{"esc", "cancel or back"},
+			{keyEnter, "select or action"},
+			{keyEsc, "cancel or back"},
 		}},
 		{"Working Tree", []entry{
 			{"s", "stage file"},
 			{"u", "unstage file"},
 			{"c", "commit"},
-			{"ctrl+a", "AI commit sugg."},
+			{keyCtrlA, "AI commit sugg."},
 			{"a", "stash changes"},
 			{"w", "toggle word diff"},
 			{"E", "AI explain diff"},
