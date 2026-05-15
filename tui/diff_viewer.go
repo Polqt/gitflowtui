@@ -1,12 +1,13 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
-// colorizeDiff applies ANSI colour to a unified diff string.
+// colorizeDiff applies ANSI colour and line numbers to a unified diff string.
 func colorizeDiff(raw string, maxWidth int) string {
 	if strings.TrimSpace(raw) == "" {
 		return lipgloss.NewStyle().Foreground(textSecondary).Render("No diff")
@@ -15,34 +16,59 @@ func colorizeDiff(raw string, maxWidth int) string {
 		maxWidth = 120
 	}
 
-	added := lipgloss.NewStyle().Foreground(accentGreen)
+	added   := lipgloss.NewStyle().Foreground(accentGreen)
 	removed := lipgloss.NewStyle().Foreground(accentRed)
-	hunk := lipgloss.NewStyle().Foreground(accentCyan)
-	meta := lipgloss.NewStyle().Bold(true).Foreground(textPrimary)
+	hunk    := lipgloss.NewStyle().Foreground(accentCyan)
+	meta    := lipgloss.NewStyle().Bold(true).Foreground(textPrimary)
+	lineNo  := lipgloss.NewStyle().Foreground(textDim)
 	wordAdd := lipgloss.NewStyle().Foreground(accentGreen).Bold(true)
 	wordDel := lipgloss.NewStyle().Foreground(accentRed).Bold(true)
 
-	lines := strings.Split(raw, "\n")
-	for i, line := range lines {
-		line = truncateString(line, maxWidth)
+	lines   := strings.Split(raw, "\n")
+	result  := make([]string, 0, len(lines))
+	oldLine := 0
+	newLine := 0
+
+	for _, line := range lines {
+		line = truncateString(line, maxWidth-6)
 		line = highlightWordDiff(line, wordAdd, wordDel)
+
 		switch {
 		case strings.HasPrefix(line, "+++ "),
 			strings.HasPrefix(line, "--- "),
 			strings.HasPrefix(line, "diff --git"):
-			lines[i] = meta.Render(line)
+			result = append(result, meta.Render(line))
+
 		case strings.HasPrefix(line, "@@"):
-			lines[i] = hunk.Render(line)
+			// Parse hunk header to reset line counters.
+			var o, n int
+			fmt.Sscanf(line, "@@ -%d", &o)
+			fmt.Sscanf(line, "@@ -%*d,%*d +%d", &n)
+			if o > 0 { oldLine = o - 1 }
+			if n > 0 { newLine = n - 1 }
+			result = append(result, hunk.Render(line))
+
 		case strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):
-			lines[i] = added.Render(line)
+			newLine++
+			no := lineNo.Render(fmt.Sprintf("%3d", newLine))
+			mk := added.Render(" +")
+			result = append(result, no+mk+"  "+added.Render(line[1:]))
+
 		case strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---"):
-			lines[i] = removed.Render(line)
+			oldLine++
+			no := lineNo.Render(fmt.Sprintf("%3d", oldLine))
+			mk := removed.Render(" -")
+			result = append(result, no+mk+"  "+removed.Render(line[1:]))
+
 		default:
-			lines[i] = line
+			oldLine++
+			newLine++
+			no := lineNo.Render(fmt.Sprintf("%3d", newLine))
+			result = append(result, no+"    "+line)
 		}
 	}
 
-	return strings.Join(lines, "\n")
+	return strings.Join(result, "\n")
 }
 
 func highlightWordDiff(line string, addStyle, removeStyle lipgloss.Style) string {

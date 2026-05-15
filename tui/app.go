@@ -80,6 +80,7 @@ type App struct {
 	status   list.Model
 	stash    list.Model
 	diff     viewport.Model
+	helpVP   viewport.Model
 
 	prompt promptOverlay
 	prForm prTemplateForm
@@ -182,6 +183,7 @@ func NewApp(repo *git.Repo, cfg config.Config, opts ...AppOption) *App {
 		status:       statusList,
 		stash:        stashList,
 		diff:         viewport.New(0, 0),
+		helpVP:       viewport.New(0, 0),
 		prompt:       promptOverlay{input: p},
 		prForm:       newPRTemplateForm(),
 		spinner:      sp,
@@ -212,15 +214,14 @@ func newPanelList() list.Model {
 	delegate.SetSpacing(0)
 	delegate.Styles.NormalTitle = lipgloss.NewStyle().
 		Foreground(textSecondary).
-		PaddingLeft(1)
+		PaddingLeft(2)
 	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
-		Background(bgElevated).
-		Foreground(accentCyan).
+		Foreground(accentGreen).
 		Bold(true).
-		PaddingLeft(0).
+		PaddingLeft(1).
 		BorderLeft(true).
 		BorderStyle(lipgloss.ThickBorder()).
-		BorderForeground(accentCyan)
+		BorderForeground(accentGreen)
 
 	m := list.New([]list.Item{}, delegate, 0, 0)
 	m.SetShowTitle(false)

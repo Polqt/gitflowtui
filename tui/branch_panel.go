@@ -61,55 +61,39 @@ func (a *App) applySnapshot(s repoSnapshot) {
 	a.stash.SetItems(stashListItems(s.Stashes))
 }
 
-// branchKindTag returns a short muted type prefix like [F], [R], [H], [M], [D].
-func branchKindTag(kind gitflow.BranchKind) string {
-	style := lipgloss.NewStyle().Foreground(textSecondary)
+// branchKindIcon returns a colored ⎇ icon for each branch kind.
+func branchKindIcon(kind gitflow.BranchKind) string {
+	var color lipgloss.Color
 	switch kind {
 	case gitflow.KindMain:
-		return style.Render("[M]")
+		color = tagMainFg
 	case gitflow.KindDevelop:
-		return style.Render("[D]")
+		color = accentCyan
 	case gitflow.KindFeature:
-		return style.Render("[F]")
+		color = tagFeatureFg
 	case gitflow.KindRelease:
-		return style.Render("[R]")
+		color = tagReleaseFg
 	case gitflow.KindHotfix:
-		return style.Render("[H]")
-	case gitflow.KindUnknown:
-		return style.Render("[·]")
+		color = tagHotfixFg
+	default:
+		color = textDim
 	}
-	return style.Render("[·]")
+	return lipgloss.NewStyle().Foreground(color).Render("⎇")
 }
 
-// branchStatusBadge returns a pill-style badge based on branch state.
-func branchStatusBadge(b git.Branch, kind gitflow.BranchKind, st uiStyles) string {
-	switch {
-	case kind == gitflow.KindHotfix:
-		return st.badge.urgent.Render("URGENT")
-	case b.IsHead && b.Ahead > 0:
-		return st.badge.readyPR.Render("STAGED")
-	case b.IsHead:
-		return st.badge.inProg.Render("IN PROGRESS")
-	case b.Ahead > 0:
-		return st.badge.readyPR.Render("READY PR")
-	default:
-		return ""
-	}
-}
 
 func branchListItems(branches []git.Branch, cfg gitflow.Config, st uiStyles) []list.Item {
 	items := make([]list.Item, 0, len(branches))
 	for _, b := range branches {
 		kind := gitflow.DetectKind(b.Name, cfg)
 
-		tag := branchKindTag(kind)
+		icon := branchKindIcon(kind)
 		name := kindNameStyle(kind, b.IsHead).Render(b.Name)
-		badge := branchStatusBadge(b, kind, st)
 
-		// Head indicator.
-		headDot := ""
+		// ★ for the current HEAD branch, right-aligned indicator.
+		headStar := ""
 		if b.IsHead {
-			headDot = lipgloss.NewStyle().Foreground(accentCyan).Bold(true).Render(" ●")
+			headStar = "  " + lipgloss.NewStyle().Foreground(accentYellow).Bold(true).Render("★")
 		}
 
 		// Sync indicators.
@@ -127,11 +111,7 @@ func branchListItems(branches []git.Branch, cfg gitflow.Config, st uiStyles) []l
 			}
 		}
 
-		label := tag + " " + name + headDot + sync
-		if badge != "" {
-			label += "  " + badge
-		}
-
+		label := icon + " " + name + sync + headStar
 		items = append(items, branchItem{branch: b, label: label})
 	}
 	return items
