@@ -1,6 +1,6 @@
 <div align="center">
   <img src="assets/logo.png" alt="gitflow-tui logo" width="180" />
-  <h1>gitflow-tui</h1>
+  <h1>gitflowy</h1>
   <p>A GitFlow-aware terminal UI built with Bubble Tea for day-to-day branch, status, diff, stash, and release workflows.</p>
 </div>
 
